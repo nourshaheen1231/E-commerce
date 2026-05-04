@@ -2,6 +2,8 @@
 
 namespace Database\Seeders;
 
+use App\Models\Cart;
+use App\Models\Product;
 use App\Models\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
@@ -18,8 +20,26 @@ class DatabaseSeeder extends Seeder
         // User::factory(10)->create();
 
         User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
+            'name' => 'Admin',
+            'email' => 'admin@gmail.com',
+            'password' => '123123123',
+            'role' => 'admin'
+        ]);
+
+        $users = User::factory(200)->create();
+
+        Product::factory(100)->create();
+
+        foreach ($users as $user) {
+            Cart::create([
+                'user_id' => $user->id
+            ]);
+        }
+
+        Product::create([
+            'name' => 'Test Product',
+            'price' => 100,
+            'stock' => 10
         ]);
     }
 }
