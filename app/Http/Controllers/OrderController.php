@@ -40,7 +40,7 @@ class OrderController extends Controller
     }
 
     public function create(Request $request)
-    { // To Do (Check the Quantity of the products)
+    {
         $user = Auth::user();
 
         if (!$user) {
@@ -75,6 +75,15 @@ class OrderController extends Controller
             return response()->json([
                 'error' => 'Some cart items are invalid'
             ], 400);
+        }
+
+        foreach ($cartItems as $item) {
+            if ($item->quantity > $item->product->stock) {
+                return response()->json([
+                    'error' => "Requested quantity exceeds available stock",
+                    'product_name' => $item->product->name
+                ], 400);
+            }
         }
 
         DB::beginTransaction();
@@ -117,7 +126,7 @@ class OrderController extends Controller
         }
     }
 
-    public function updateOrderStatus(Request $request)
+    public function cancelOrder(Request $request)
     {
         $user = Auth::user();
 
@@ -126,5 +135,58 @@ class OrderController extends Controller
                 'error' => 'Unauthorized'
             ], 401);
         }
+
+        $order = Order::where('user_id', $user->id)->where('id', $request->id)->first();
+        if (!$order) {
+            return response()->json([
+                'error' => 'Order not found'
+            ], 404);
+        }
+
+        if ($order->status !== 'pending') {
+            return response()->json([
+                'error' => 'Only pending orders can be canceled'
+            ], 400);
+        }
+        $order->status = 'canceled';
+        $order->save();
+
+        return response()->json([
+            'message' => 'Order canceled successfully'
+        ], 200);
+    }
+
+    public function updateStatus(Request $request)
+    {
+        $user = Auth::user();
+
+        if (!$user) {
+            return response()->json([
+                'error' => 'Unauthorized'
+            ], 401);
+        }
+        if ($user->role !== 'admin') {
+            return response()->json([
+                'error' => 'Forbidden'
+            ], 403);
+        }
+
+        $request->validate([
+            'status' => 'required|in:pending,shipped,delivered,canceled'
+        ]);
+
+        $order = Order::find($request->id);
+        if (!$order) {
+            return response()->json([
+                'error' => 'Order not found'
+            ], 404);
+        }
+
+        $order->status = $request->status;
+        $order->save();
+
+        return response()->json([
+            'message' => 'Order status updated successfully'
+        ], 200);
     }
 }

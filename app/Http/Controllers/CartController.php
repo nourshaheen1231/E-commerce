@@ -35,7 +35,9 @@ class CartController extends Controller
             return response()->json(['error' => 'Unauthorized'], 401);
         }
         $cart = Cart::where('user_id', $user->id)->first();
-
+        if (!$cart) {
+            $cart = Cart::create(['user_id' => $user->id]);
+        }
         $cartItem = CartItem::create([
             'cart_id' => $cart->id,
             'product_id' => $request->input('product_id'),
