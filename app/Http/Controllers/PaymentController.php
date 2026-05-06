@@ -5,9 +5,11 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Order;
 use App\Models\Payment;
+use App\Models\Product;
 use Stripe\Stripe;
 use Stripe\PaymentIntent;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class PaymentController extends Controller
@@ -17,71 +19,155 @@ class PaymentController extends Controller
         Stripe::setApiKey(env('STRIPE_SECRET'));
     }
 
+
     public function createPaymentIntent(Request $request)
     {
         $request->validate([
             'order_id' => 'required|exists:orders,id',
+            'scenario' => 'nullable|string' // فقط للاختبار
         ]);
 
-        $order = Order::where('user_id', Auth::id())->find($request->order_id);
+        $order = Order::where('user_id', Auth::id())
+            ->where('status', 'pending')
+            ->find($request->order_id);
 
         if (!$order) {
-            return response()->json(['message' => 'Order not found'], 404);
+            return response()->json(['message' => 'Order not found or not payable'], 404);
         }
 
-        $intent = PaymentIntent::create([
-            'amount' => intval($order->total_price * 100),
-            'currency' => 'usd',
-            'metadata' => [
-                'order_id' => $order->id,
+        $paymentMethod = 'pm_card_visa'; // default (success)
+
+        if (app()->environment('local', 'testing')) {
+            switch ($request->scenario) {
+                case 'fail':
+                    $paymentMethod = 'pm_card_chargeDeclined';
+                    break;
+
+                case 'insufficient':
+                    $paymentMethod = 'pm_card_insufficientFunds';
+                    break;
+
+                case 'auth':
+                    $paymentMethod = 'pm_card_authenticationRequired';
+                    break;
+            }
+        }
+
+        try {
+            DB::beginTransaction();
+
+            $intent = \Stripe\PaymentIntent::create([
+                'amount' => intval($order->total_price * 100),
+                'currency' => 'usd',
+                'payment_method' => $paymentMethod,
+                'confirm' => true,
+
+                'automatic_payment_methods' => [
+                    'enabled' => true,
+                    'allow_redirects' => 'never',
+                ],
+                'metadata' => [
+                    'order_id' => $order->id,
+                    'user_id' => Auth::id(),
+                ],
+            ]);
+
+            $payment = Payment::create([
                 'user_id' => Auth::id(),
-            ],
-        ]);
+                'order_id' => $order->id,
+                'stripe_payment_intent_id' => $intent->id,
+                'amount' => $order->total_price,
+                'status' => 'pending',
+                'payment_method' => 'stripe',
+                'currency' => 'usd',
+            ]);
 
-        $payment = Payment::create([
-            'user_id' => Auth::id(),
-            'order_id' => $order->id,
-            'stripe_payment_intent_id' => $intent->id,
-            'amount' => $order->total_price,
-            'status' => 'pending',
-            'payment_method' => 'stripe',
-            'currency' => 'usd',
-        ]);
+            if ($intent->status === 'succeeded') {
 
-        return response()->json([
-            'message' => 'PaymentIntent created',
-            'client_secret' => $intent->client_secret,
-            'payment_intent_id' => $intent->id,
-        ]);
+                foreach ($order->orderItems as $item) {
+                    $product = Product::lockForUpdate()->find($item->product_id);
+
+                    if (!$product || $product->stock < $item->quantity) {
+                        throw new \Exception("Insufficient stock for product ID {$item->product_id}");
+                    }
+
+                    $product->decrement('stock', $item->quantity);
+                }
+
+                $payment->status = 'paid';
+                $payment->save();
+
+                $order->status = 'paid';
+                $order->save();
+
+                DB::commit();
+
+                return response()->json([
+                    'message' => 'Payment successful',
+                    'order_id' => $order->id,
+                    'payment_status' => 'paid'
+                ]);
+            }
+
+            DB::rollBack();
+
+            $order->status = 'failed';
+            $order->save();
+
+            return response()->json([
+                'message' => 'Payment failed',
+                'status' => $intent->status,
+                'reason' => $intent->last_payment_error->message ?? null
+            ], 400);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            return response()->json([
+                'message' => 'Payment error',
+                'details' => $e->getMessage()
+            ], 500);
+        }
     }
 
- 
- // public function confirmPayment(Request $request)
+    // public function createPaymentIntent(Request $request)
     // {
     //     $request->validate([
-    //         'payment_intent_id' => 'required|string',
+    //         'order_id' => 'required|exists:orders,id',
     //     ]);
 
-    //     $payment = Payment::where('stripe_payment_intent_id', $request->payment_intent_id)->first();
+    //     $order = Order::where('user_id', Auth::id())->find($request->order_id);
 
-    //     if (!$payment) {
-    //         return response()->json(['message' => 'Payment not found'], 404);
+    //     if (!$order) {
+    //         return response()->json(['message' => 'Order not found'], 404);
     //     }
 
-    //     $intent = PaymentIntent::retrieve($request->payment_intent_id);
+    //     $intent = PaymentIntent::create([
+    //         'amount' => intval($order->total_price * 100),
+    //         'currency' => 'usd',
+    //         'metadata' => [
+    //             'order_id' => $order->id,
+    //             'user_id' => Auth::id(),
+    //         ],
+    //     ]);
 
-    //     if ($intent->status !== 'succeeded') {
-    //         return response()->json(['message' => 'Payment not completed'], 400);
-    //     }
-
-    //     $payment->status = 'paid';
-    //     $payment->save();
+    //     $payment = Payment::create([
+    //         'user_id' => Auth::id(),
+    //         'order_id' => $order->id,
+    //         'stripe_payment_intent_id' => $intent->id,
+    //         'amount' => $order->total_price,
+    //         'status' => 'pending',
+    //         'payment_method' => 'stripe',
+    //         'currency' => 'usd',
+    //     ]);
 
     //     return response()->json([
-    //         'message' => 'Payment confirmed successfully',
-    //         'payment_status' => 'paid'
+    //         'message' => 'PaymentIntent created',
+    //         'client_secret' => $intent->client_secret,
+    //         'payment_intent_id' => $intent->id,
     //     ]);
     // }
+
 
     public function confirmPayment(Request $request)
     {
@@ -139,52 +225,24 @@ class PaymentController extends Controller
     }
 
 
-    // public function confirmPayment(Request $request)
+    // public function refund($paymentIntentId)
     // {
-    //     $request->validate(['payment_intent_id' => 'required|string']);
-    //     $piId = $request->payment_intent_id;
+    //     $payment = Payment::where('stripe_payment_intent_id', $paymentIntentId)
+    //         ->where('user_id', Auth::id())
+    //         ->first();
 
-    //     Stripe::setApiKey(config('services.stripe.secret'));
-
-    //     try {
-    //         $intent = PaymentIntent::retrieve($piId);
-
-    //         // لو ما في طريقة دفع، حاول تأكيد اختبارياً
-    //         if ($intent->status === 'requires_payment_method') {
-    //             $intent = PaymentIntent::confirm($piId, [
-    //                 'payment_method' => 'pm_card_visa'
-    //             ]);
-    //         }
-
-    //         // افحص الخطأ الأخير لو موجود
-    //         if (isset($intent->last_payment_error)) {
-    //             \Log::warning('PaymentIntent last error', ['pi'=>$piId, 'error'=>$intent->last_payment_error]);
-    //         }
-
-    //         if ($intent->status !== 'succeeded') {
-    //             return response()->json(['message' => 'Payment not completed', 'status' => $intent->status], 400);
-    //         }
-
-    //         $payment = \App\Models\Payment::where('stripe_payment_intent_id', $piId)->first();
-    //         if (!$payment) return response()->json(['message'=>'Payment not found'], 404);
-
-    //         if ($payment->status !== 'paid') {
-    //             $payment->status = 'paid';
-    //             $payment->save();
-    //             if ($payment->order) {
-    //                 $payment->order->status = 'paid';
-    //                 $payment->order->save();
-    //             }
-    //         }
-
-    //         return response()->json(['message'=>'Payment confirmed successfully','payment_status'=>'paid']);
-    //     } catch (\Stripe\Exception\ApiErrorException $e) {
-    //         \Log::error('Stripe API error: '.$e->getMessage(), ['pi'=>$piId]);
-    //         return response()->json(['message'=>'Stripe API error','details'=>$e->getMessage()], 500);
-    //     } catch (\Exception $e) {
-    //         \Log::error('ConfirmPayment error: '.$e->getMessage(), ['pi'=>$piId]);
-    //         return response()->json(['message'=>'Error confirming payment','details'=>$e->getMessage()], 500);
+    //     if (!$payment || $payment->status !== 'paid') {
+    //         return false; 
     //     }
+
+    //     \Stripe\Refund::create([
+    //         'payment_intent' => $paymentIntentId,
+    //     ]);
+
+    //     $payment->status = 'canceled';
+    //     $payment->save();
+
+    //     return true; 
     // }
 
 
@@ -196,16 +254,46 @@ class PaymentController extends Controller
             ->first();
 
         if (!$payment || $payment->status !== 'paid') {
-            return false; 
+            return response()->json(['message' => 'Invalid payment'], 400);
         }
 
-        \Stripe\Refund::create([
-            'payment_intent' => $paymentIntentId,
-        ]);
+        try {
+            DB::beginTransaction();
 
-        $payment->status = 'canceled';
-        $payment->save();
+            $refund = \Stripe\Refund::create([
+                'payment_intent' => $paymentIntentId,
+            ]);
 
-        return true; 
+            if ($refund->status !== 'succeeded') {
+                throw new \Exception('Refund failed');
+            }
+
+            $order = $payment->order;
+
+            foreach ($order->orderItems as $item) {
+                $product = Product::lockForUpdate()->find($item->product_id);
+                $product->increment('stock', $item->quantity);
+            }
+
+            $payment->status = 'refunded';
+            $payment->save();
+
+            $order->status = 'canceled';
+            $order->save();
+
+            DB::commit();
+
+            return response()->json([
+                'message' => 'Refund successful'
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            return response()->json([
+                'message' => 'Refund failed',
+                'details' => $e->getMessage()
+            ], 500);
+        }
     }
 }
