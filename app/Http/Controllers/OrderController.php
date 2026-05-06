@@ -16,9 +16,6 @@ class OrderController extends Controller
     public function orders()
     {
         $user = Auth::user();
-        if (!$user) {
-            return response()->json(['error' => 'Unauthorized'], 401);
-        }
 
         $orders = Order::with('payment')->get()->map(function ($order) {
             return [
@@ -37,9 +34,6 @@ class OrderController extends Controller
     public function orderHistory()
     {
         $user = Auth::user();
-        if (!$user) {
-            return response()->json(['error' => 'Unauthorized'], 401);
-        }
 
         return response()->json(
             Order::where('user_id', $user->id)->get(),
@@ -50,9 +44,6 @@ class OrderController extends Controller
     public function orderDetails(Request $request)
     {
         $user = Auth::user();
-        if (!$user) {
-            return response()->json(['error' => 'Unauthorized'], 401);
-        }
 
         $validator = Validator::make($request->all(), [
             'id' => 'required|integer|exists:orders,id',
@@ -81,9 +72,6 @@ class OrderController extends Controller
     public function create(Request $request)
     {
         $user = Auth::user();
-        if (!$user) {
-            return response()->json(['error' => 'Unauthorized'], 401);
-        }
 
         $validator = Validator::make($request->all(), [
             'items' => 'required|array|min:1',
@@ -182,9 +170,6 @@ class OrderController extends Controller
     public function cancelOrder($id)
     {
         $user = Auth::user();
-        if (!$user) {
-            return response()->json(['error' => 'Unauthorized'], 401);
-        }
 
         // 1) جلب الطلب مع الدفع
         $order = Order::where('user_id', $user->id)
@@ -225,9 +210,6 @@ class OrderController extends Controller
     public function updateStatus(Request $request)
     {
         $user = Auth::user();
-        if (!$user) {
-            return response()->json(['error' => 'Unauthorized'], 401);
-        }
 
         $validator = Validator::make($request->all(), [
             'id'     => 'required|integer|exists:orders,id',

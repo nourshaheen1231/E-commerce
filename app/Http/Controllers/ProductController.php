@@ -33,10 +33,6 @@ class ProductController extends Controller
 
     public function store(Request $request)
     {
-        $user = Auth::user();
-        if (!$user || $user->role !== 'admin') {
-            return response()->json(['error' => 'Unauthorized'], 403);
-        }
 
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|min:2|max:255',
@@ -56,10 +52,6 @@ class ProductController extends Controller
 
     public function update(Request $request, $id)
     {
-        $user = Auth::user();
-        if (!$user || $user->role !== 'admin') {
-            return response()->json(['error' => 'Unauthorized'], 403);
-        }
 
         $product = Product::find($id);
         if (!$product) {
@@ -84,10 +76,6 @@ class ProductController extends Controller
 
     public function destroy($id)
     {
-        $user = Auth::user();
-        if (!$user || $user->role !== 'admin') {
-            return response()->json(['error' => 'Unauthorized'], 403);
-        }
 
         $validator = Validator::make(['id' => $id], [
             'id' => 'required|integer|exists:products,id',

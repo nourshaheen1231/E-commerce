@@ -14,9 +14,6 @@ class CartController extends Controller
     public function index()
     {
         $user = Auth::user();
-        if (!$user) {
-            return response()->json(['error' => 'Unauthorized'], 401);
-        }
 
         $cart = $user->cart;
 
@@ -34,9 +31,6 @@ class CartController extends Controller
     public function add(Request $request)
     {
         $user = Auth::user();
-        if (!$user) {
-            return response()->json(['error' => 'Unauthorized'], 401);
-        }
 
         $validator = Validator::make($request->all(), [
             'product_id' => 'required|integer|exists:products,id',
@@ -83,9 +77,6 @@ class CartController extends Controller
     public function remove(Request $request)
     {
         $user = Auth::user();
-        if (!$user) {
-            return response()->json(['error' => 'Unauthorized'], 401);
-        }
 
         $validator = Validator::make($request->all(), [
             'product_id' => 'required|integer|exists:products,id',
@@ -117,9 +108,6 @@ class CartController extends Controller
     public function update(Request $request)
     {
         $user = Auth::user();
-        if (!$user) {
-            return response()->json(['error' => 'Unauthorized'], 401);
-        }
 
         $validator = Validator::make($request->all(), [
             'product_id' => 'required|integer|exists:products,id',
