@@ -4,8 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Models\Cart;
 use App\Models\CartItem;
+use App\Models\Product;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Validator;
 
 class CartController extends Controller
 {
@@ -15,10 +17,11 @@ class CartController extends Controller
         if (!$user) {
             return response()->json(['error' => 'Unauthorized'], 401);
         }
+
         $cart = $user->cart;
 
         if (!$cart) {
-            return response()->json([]);
+            return response()->json([], 200);
         }
 
         $cartItems = CartItem::with('product')
@@ -34,22 +37,47 @@ class CartController extends Controller
         if (!$user) {
             return response()->json(['error' => 'Unauthorized'], 401);
         }
-        $cart = Cart::where('user_id', $user->id)->first();
-        if (!$cart) {
-            $cart = Cart::create(['user_id' => $user->id]);
-        }
-        $cartItem = CartItem::create([
-            'cart_id' => $cart->id,
-            'product_id' => $request->input('product_id'),
-            'quantity' => $request->input('quantity', 1),
+
+        $validator = Validator::make($request->all(), [
+            'product_id' => 'required|integer|exists:products,id',
+            'quantity'   => 'nullable|integer|min:1|max:1000',
         ]);
 
-        $price = $cartItem->product->price;
-        $cartItem->price = $price * $cartItem->quantity;
-        $cartItem->save();
+        if ($validator->fails()) {
+            return response()->json(['error' => $validator->errors()], 422);
+        }
 
+        $cart = Cart::firstOrCreate(['user_id' => $user->id]);
+        $product = Product::find($request->product_id);
 
-        return response()->json(['message' => 'Product added to cart'], 201);
+        $requestedQty = $request->quantity ?? 1;
+
+        $existingItem = CartItem::where('cart_id', $cart->id)
+            ->where('product_id', $product->id)
+            ->first();
+
+        if ($existingItem) {
+            return response()->json([
+                'error' => 'Product already exists in cart'
+            ], 409);
+        }
+
+        if ($requestedQty > $product->stock) {
+            return response()->json([
+                'error' => 'Requested quantity exceeds available stock'
+            ], 400);
+        }
+
+        $cartItem = CartItem::create([
+            'cart_id' => $cart->id,
+            'product_id' => $product->id,
+            'quantity' => $requestedQty,
+            'price' => $product->price * $requestedQty,
+        ]);
+
+        return response()->json([
+            'message' => 'Product added to cart'
+        ], 201);
     }
 
     public function remove(Request $request)
@@ -59,9 +87,23 @@ class CartController extends Controller
             return response()->json(['error' => 'Unauthorized'], 401);
         }
 
+        $validator = Validator::make($request->all(), [
+            'product_id' => 'required|integer|exists:products,id',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['error' => $validator->errors()], 422);
+        }
+
         $cart = $user->cart;
 
-        $cartItem = CartItem::where('cart_id', $cart->id)->where('product_id', $request->input('product_id'))->first();
+        if (!$cart) {
+            return response()->json(['error' => 'Cart is empty'], 404);
+        }
+
+        $cartItem = CartItem::where('cart_id', $cart->id)
+            ->where('product_id', $request->product_id)
+            ->first();
 
         if (!$cartItem) {
             return response()->json(['error' => 'Product not found in cart'], 404);
@@ -79,17 +121,31 @@ class CartController extends Controller
             return response()->json(['error' => 'Unauthorized'], 401);
         }
 
+        $validator = Validator::make($request->all(), [
+            'product_id' => 'required|integer|exists:products,id',
+            'quantity'   => 'required|integer|min:1|max:1000',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['error' => $validator->errors()], 422);
+        }
+
         $cart = $user->cart;
 
-        $cartItem = CartItem::where('cart_id', $cart->id)->where('product_id', $request->input('product_id'))->first();
+        if (!$cart) {
+            return response()->json(['error' => 'Cart is empty'], 404);
+        }
+
+        $cartItem = CartItem::where('cart_id', $cart->id)
+            ->where('product_id', $request->product_id)
+            ->first();
 
         if (!$cartItem) {
             return response()->json(['error' => 'Product not found in cart'], 404);
         }
 
-        $cartItem->quantity = $request->input('quantity', $cartItem->quantity);
-        $price = $cartItem->product->price;
-        $cartItem->price = $price * $cartItem->quantity;
+        $cartItem->quantity = $request->quantity;
+        $cartItem->price = $cartItem->product->price * $request->quantity;
         $cartItem->save();
 
         return response()->json(['message' => 'Cart updated'], 200);

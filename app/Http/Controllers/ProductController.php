@@ -5,35 +5,51 @@ namespace App\Http\Controllers;
 use App\Models\Product;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Validator;
 
 class ProductController extends Controller
 {
     public function index()
     {
         $products = Product::all();
-
         return response()->json($products, 200);
     }
 
     public function show($id)
     {
-        $product = Product::find($id);
+        $validator = Validator::make(['id' => $id], [
+            'id' => 'required|integer|exists:products,id',
+        ]);
 
+        if ($validator->fails()) {
+            return response()->json(['error' => $validator->errors()], 422);
+        }
+        $product = Product::find($id);
         if (!$product) {
             return response()->json(['error' => 'Product not found'], 404);
         }
-
         return response()->json($product, 200);
     }
 
     public function store(Request $request)
     {
         $user = Auth::user();
-        if ($user->role !== 'admin') {
+        if (!$user || $user->role !== 'admin') {
             return response()->json(['error' => 'Unauthorized'], 403);
         }
 
-        $product = Product::create($request->all());
+        $validator = Validator::make($request->all(), [
+            'name' => 'required|string|min:2|max:255',
+            'description' => 'nullable|string|max:2000',
+            'price' => 'required|numeric|min:0.1|max:999999.99',
+            'stock' => 'required|integer|min:0|max:1000000',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['error' => $validator->errors()], 422);
+        }
+
+        $product = Product::create($validator->validated());
 
         return response()->json($product, 201);
     }
@@ -41,17 +57,27 @@ class ProductController extends Controller
     public function update(Request $request, $id)
     {
         $user = Auth::user();
-        if ($user->role !== 'admin') {
+        if (!$user || $user->role !== 'admin') {
             return response()->json(['error' => 'Unauthorized'], 403);
         }
 
         $product = Product::find($id);
-
         if (!$product) {
             return response()->json(['error' => 'Product not found'], 404);
         }
 
-        $product->update($request->all());
+        $validator = Validator::make($request->all(), [
+            'name' => 'sometimes|required|string|min:2|max:255',
+            'description' => 'sometimes|nullable|string|max:2000',
+            'price' => 'sometimes|required|numeric|min:0.1|max:999999.99',
+            'stock' => 'sometimes|required|integer|min:0|max:1000000',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['error' => $validator->errors()], 422);
+        }
+
+        $product->update($validator->validated());
 
         return response()->json($product, 200);
     }
@@ -59,17 +85,19 @@ class ProductController extends Controller
     public function destroy($id)
     {
         $user = Auth::user();
-        if ($user->role !== 'admin') {
+        if (!$user || $user->role !== 'admin') {
             return response()->json(['error' => 'Unauthorized'], 403);
         }
 
-        $product = Product::find($id);
+        $validator = Validator::make(['id' => $id], [
+            'id' => 'required|integer|exists:products,id',
+        ]);
 
-        if (!$product) {
-            return response()->json(['error' => 'Product not found'], 404);
+        if ($validator->fails()) {
+            return response()->json(['error' => $validator->errors()], 422);
         }
 
-        $product->delete();
+        Product::destroy($id);
 
         return response()->json(['message' => "Product with ID: $id deleted"], 200);
     }

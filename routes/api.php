@@ -7,6 +7,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CartController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\OrderController;
+use App\Http\Controllers\PaymentController;
 
 // Route::get('/user', function (Request $request) {
 //     return $request->user();
@@ -20,7 +21,6 @@ Route::prefix('auth')->group(function () {
     Route::middleware('jwt.verify')->group(function () {
         Route::post('/logout', [AuthController::class, 'logout']);
     });
-
 });
 
 // For all users
@@ -36,11 +36,10 @@ Route::middleware(['jwt.verify', 'admin'])->group(function () {
 
 Route::middleware('jwt.verify')->prefix('cart')->group(function () {
 
-    Route::get('/', [CartController::class, 'index']);       
-    Route::post('/add', [CartController::class, 'add']);     
+    Route::get('/', [CartController::class, 'index']);
+    Route::post('/add', [CartController::class, 'add']);
     Route::post('/remove', [CartController::class, 'remove']);
     Route::post('/update', [CartController::class, 'update']);
-
 });
 
 
@@ -51,9 +50,18 @@ Route::middleware('jwt.verify')->prefix('orders')->group(function () {
     Route::post('/details', [OrderController::class, 'orderDetails']);
     Route::post('/create', [OrderController::class, 'create']);
 
-    // Admin route
-    Route::middleware('admin')->group(function () {
-        Route::post('/update-status', [OrderController::class, 'updateOrderStatus']);
-    });
+    // أهم تعديل: cancelOrder لازم يكون مع ID
+    Route::post('/cancel/{id}', [OrderController::class, 'cancelOrder']);
 
+    // Admin routes
+    Route::middleware('admin')->group(function () {
+        Route::post('/updateStatus', [OrderController::class, 'updateStatus']);
+        Route::post('/', [OrderController::class, 'orders']);
+    });
+});
+
+
+Route::prefix('payment')->middleware(['jwt.verify'])->group(function () {
+    Route::post('/create-intent', [PaymentController::class, 'createPaymentIntent']);
+    Route::post('/confirm', [PaymentController::class, 'confirmPayment']);
 });
