@@ -135,7 +135,7 @@ class OrderController extends Controller
                     throw new \Exception("Insufficient stock for product {$product->name}");
                 }
 
-                // $product->decrement('stock', $item->quantity);
+                $product->decrement('stock', $item->quantity);
 
                 OrderItem::create([
                     'order_id' => $order->id,
