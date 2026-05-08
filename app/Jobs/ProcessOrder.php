@@ -8,6 +8,7 @@ use App\Models\Product;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\DB;
+use Stripe\Stripe;
 
 class ProcessOrder implements ShouldQueue
 {
@@ -32,6 +33,7 @@ class ProcessOrder implements ShouldQueue
      */
     public function handle(): void
     {
+        Stripe::setApiKey(env('STRIPE_SECRET'));
         $paymentMethod = 'pm_card_visa';
 
         switch ($this->scenario) {
@@ -68,7 +70,7 @@ class ProcessOrder implements ShouldQueue
                 ],
 
             ], [
-                'idempotency_key' => 'order_' . $this->order->id
+                'idempotency_key' => 'order_' . $this->order->id . '_' . time()
             ]);
 
             if ($intent->status === 'succeeded') {
@@ -87,8 +89,9 @@ class ProcessOrder implements ShouldQueue
 
                     $this->order->status = 'paid';
                     $this->order->save();
+                    //المهة الثانوية :انشاء فواتير
+                    GenerateInvoicePDF::dispatch($this->order);
                 });
-
             } else {
 
                 DB::transaction(function () use ($intent) {
@@ -117,7 +120,6 @@ class ProcessOrder implements ShouldQueue
                     $this->order->save();
                 });
             }
-
         } catch (\Exception $e) {
 
             logger()->error('Payment Job Failed: ' . $e->getMessage());

@@ -35,12 +35,18 @@ class OrderController extends Controller
     {
         $user = Auth::user();
 
-        return response()->json(
-            Order::where('user_id', $user->id)->get(),
-            200
-        );
-    }
+        $orders = Order::where('user_id', $user->id)
+            ->latest()
+            ->get()
+            ->map(function ($order) {
+                $order->invoice_url = $order->invoice_path
+                    ? asset('storage/' . $order->invoice_path)
+                    : null;
+                return $order;
+            });
 
+        return response()->json($orders, 200);
+    }
     public function orderDetails(Request $request)
     {
         $user = Auth::user();

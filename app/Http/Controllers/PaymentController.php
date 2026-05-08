@@ -12,6 +12,8 @@ use Stripe\PaymentIntent;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
+
 
 class PaymentController extends Controller
 {
@@ -19,6 +21,155 @@ class PaymentController extends Controller
     {
         Stripe::setApiKey(env('STRIPE_SECRET'));
     }
+
+
+    public function createPaymentIntent(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'order_id' => 'required|exists:orders,id',
+            'scenario' => 'nullable|string'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'error' => $validator->errors()
+            ], 422);
+        }
+
+        $order = Order::where('user_id', Auth::id())
+            ->where('status', 'pending')
+            ->with('orderItems')
+            ->find($request->order_id);
+
+        if (!$order) {
+            return response()->json([
+                'message' => 'Order not found or not payable'
+            ], 404);
+        }
+
+        if ($order->status == 'paid') {
+            return response()->json([
+                'message' => 'Order already paid'
+            ], 400);
+        }
+
+        ProcessOrder::dispatch(
+            $order,
+            Auth::id(),
+            $request->scenario
+        );
+
+        return response()->json([
+            'message' => 'Payment is being processed in background',
+        ], 202);
+    }
+
+
+    public function confirmPayment(Request $request)
+    {
+        $request->validate([
+            'payment_intent_id' => 'required|string',
+        ]);
+
+        $piId = $request->payment_intent_id;
+
+        // تأكدي من ضبط مفتاح Stripe
+        Stripe::setApiKey(config('services.stripe.secret'));
+
+        // لوج سريع للتأكد من قيمة الـ PI id
+        Log::info('ConfirmPayment called', ['pi_id' => $piId]);
+
+        try {
+            // استرجاع الـ PaymentIntent من Stripe
+            $intent = PaymentIntent::retrieve($piId);
+
+            Log::info('Stripe intent', ['id' => $intent->id, 'status' => $intent->status]);
+
+            if ($intent->status !== 'succeeded') {
+                return response()->json([
+                    'message' => 'Payment not completed',
+                    'status' => $intent->status
+                ], 400);
+            }
+
+            $payment = \App\Models\Payment::where('stripe_payment_intent_id', $piId)->first();
+
+            if (!$payment) {
+                return response()->json(['message' => 'Payment not found'], 404);
+            }
+
+            if ($payment->status === 'paid') {
+                return response()->json(['message' => 'Already paid', 'payment_status' => 'paid']);
+            }
+
+            $payment->status = 'paid';
+            $payment->save();
+
+            if ($payment->order) {
+                $payment->order->status = 'paid';
+                $payment->order->save();
+            }
+
+            return response()->json(['message' => 'Payment confirmed successfully', 'payment_status' => 'paid']);
+        } catch (\Stripe\Exception\ApiErrorException $e) {
+            Log::error('Stripe API error: ' . $e->getMessage(), ['pi_id' => $piId]);
+            return response()->json(['message' => 'Stripe API error', 'details' => $e->getMessage()], 500);
+        } catch (\Exception $e) {
+            Log::error('ConfirmPayment error: ' . $e->getMessage(), ['pi_id' => $piId]);
+            return response()->json(['message' => 'Error confirming payment', 'details' => $e->getMessage()], 500);
+        }
+    }
+
+
+    public function refund($paymentIntentId)
+    {
+        $payment = Payment::where('stripe_payment_intent_id', $paymentIntentId)
+            ->where('user_id', Auth::id())
+            ->first();
+
+        if (!$payment || $payment->status !== 'paid') {
+            return response()->json(['message' => 'Invalid payment'], 400);
+        }
+
+        try {
+            DB::beginTransaction();
+
+            $refund = \Stripe\Refund::create([
+                'payment_intent' => $paymentIntentId,
+            ]);
+
+            if ($refund->status !== 'succeeded') {
+                throw new \Exception('Refund failed');
+            }
+
+            $order = $payment->order;
+
+            foreach ($order->orderItems as $item) {
+                $product = Product::lockForUpdate()->find($item->product_id);
+                $product->increment('stock', $item->quantity);
+            }
+
+            $payment->status = 'refunded';
+            $payment->save();
+
+            $order->status = 'canceled';
+            $order->save();
+
+            DB::commit();
+
+            return response()->json([
+                'message' => 'Refund successful'
+            ]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            return response()->json([
+                'message' => 'Refund failed',
+                'details' => $e->getMessage()
+            ], 500);
+        }
+    }
+}
 
 
     // public function createPaymentIntent(Request $request)
@@ -131,97 +282,7 @@ class PaymentController extends Controller
     //     }
     // }
 
-    public function createPaymentIntent(Request $request)
-    {
-        $request->validate([
-            'order_id' => 'required|exists:orders,id',
-            'scenario' => 'nullable|string'
-        ]);
-
-        $order = Order::where('user_id', Auth::id())
-            ->where('status', 'pending')
-            ->with('orderItems')
-            ->find($request->order_id);
-
-        if (!$order) {
-            return response()->json([
-                'message' => 'Order not found or not payable'
-            ], 404);
-        }
-
-        if ($order->status == 'paid') {
-            return response()->json([
-                'message' => 'Order already paid'
-            ], 400);
-        }
-
-        ProcessOrder::dispatch(
-            $order,
-            Auth::id(), 
-            $request->scenario
-        );
-
-        return response()->json([
-            'message' => 'Payment is being processed in background',
-        ], 202);
-    }
-
-
-    public function confirmPayment(Request $request)
-    {
-        $request->validate([
-            'payment_intent_id' => 'required|string',
-        ]);
-
-        $piId = $request->payment_intent_id;
-
-        // تأكدي من ضبط مفتاح Stripe
-        Stripe::setApiKey(config('services.stripe.secret'));
-
-        // لوج سريع للتأكد من قيمة الـ PI id
-        Log::info('ConfirmPayment called', ['pi_id' => $piId]);
-
-        try {
-            // استرجاع الـ PaymentIntent من Stripe
-            $intent = PaymentIntent::retrieve($piId);
-
-            Log::info('Stripe intent', ['id' => $intent->id, 'status' => $intent->status]);
-
-            if ($intent->status !== 'succeeded') {
-                return response()->json([
-                    'message' => 'Payment not completed',
-                    'status' => $intent->status
-                ], 400);
-            }
-
-            $payment = \App\Models\Payment::where('stripe_payment_intent_id', $piId)->first();
-
-            if (!$payment) {
-                return response()->json(['message' => 'Payment not found'], 404);
-            }
-
-            if ($payment->status === 'paid') {
-                return response()->json(['message' => 'Already paid', 'payment_status' => 'paid']);
-            }
-
-            $payment->status = 'paid';
-            $payment->save();
-
-            if ($payment->order) {
-                $payment->order->status = 'paid';
-                $payment->order->save();
-            }
-
-            return response()->json(['message' => 'Payment confirmed successfully', 'payment_status' => 'paid']);
-        } catch (\Stripe\Exception\ApiErrorException $e) {
-            Log::error('Stripe API error: '.$e->getMessage(), ['pi_id' => $piId]);
-            return response()->json(['message' => 'Stripe API error', 'details' => $e->getMessage()], 500);
-        } catch (\Exception $e) {
-            Log::error('ConfirmPayment error: '.$e->getMessage(), ['pi_id' => $piId]);
-            return response()->json(['message' => 'Error confirming payment', 'details' => $e->getMessage()], 500);
-        }
-    }
-
+    
 
     // public function refund($paymentIntentId)
     // {
@@ -242,56 +303,3 @@ class PaymentController extends Controller
 
     //     return true; 
     // }
-
-
-
-    public function refund($paymentIntentId)
-    {
-        $payment = Payment::where('stripe_payment_intent_id', $paymentIntentId)
-            ->where('user_id', Auth::id())
-            ->first();
-
-        if (!$payment || $payment->status !== 'paid') {
-            return response()->json(['message' => 'Invalid payment'], 400);
-        }
-
-        try {
-            DB::beginTransaction();
-
-            $refund = \Stripe\Refund::create([
-                'payment_intent' => $paymentIntentId,
-            ]);
-
-            if ($refund->status !== 'succeeded') {
-                throw new \Exception('Refund failed');
-            }
-
-            $order = $payment->order;
-
-            foreach ($order->orderItems as $item) {
-                $product = Product::lockForUpdate()->find($item->product_id);
-                $product->increment('stock', $item->quantity);
-            }
-
-            $payment->status = 'refunded';
-            $payment->save();
-
-            $order->status = 'canceled';
-            $order->save();
-
-            DB::commit();
-
-            return response()->json([
-                'message' => 'Refund successful'
-            ]);
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-
-            return response()->json([
-                'message' => 'Refund failed',
-                'details' => $e->getMessage()
-            ], 500);
-        }
-    }
-}
