@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Jobs\ProcessOrder;
 use Illuminate\Http\Request;
 use App\Models\Order;
 use App\Models\Payment;
@@ -154,112 +155,15 @@ class PaymentController extends Controller
             ], 400);
         }
 
-        $paymentMethod = 'pm_card_visa';
+        ProcessOrder::dispatch(
+            $order,
+            Auth::id(), 
+            $request->scenario
+        );
 
-        if (app()->environment('local', 'testing')) {
-
-            switch ($request->scenario) {
-
-                case 'fail':
-                    $paymentMethod = 'pm_card_chargeDeclined';
-                    break;
-
-                case 'insufficient':
-                    $paymentMethod = 'pm_card_insufficientFunds';
-                    break;
-
-                case 'auth':
-                    $paymentMethod = 'pm_card_authenticationRequired';
-                    break;
-            }
-        }
-
-        try {
-
-            $intent = \Stripe\PaymentIntent::create([
-                'amount' => intval($order->total_price * 100),
-                'currency' => 'usd',
-                'payment_method' => $paymentMethod,
-                'confirm' => true,
-
-                'automatic_payment_methods' => [
-                    'enabled' => true,
-                    'allow_redirects' => 'never',
-                ],
-
-                'metadata' => [
-                    'order_id' => $order->id,
-                    'user_id' => Auth::id(),
-                ],
-
-            ], [
-                'idempotency_key' => 'order_' . $order->id
-            ]);
-
-            if ($intent->status === 'succeeded') {
-
-                DB::transaction(function () use ($order, $intent) {
-
-                    Payment::create([
-                        'user_id' => Auth::id(),
-                        'order_id' => $order->id,
-                        'stripe_payment_intent_id' => $intent->id,
-                        'amount' => $order->total_price,
-                        'status' => 'paid',
-                        'payment_method' => 'stripe',
-                        'currency' => 'usd',
-                    ]);
-
-                    $order->status = 'paid';
-                    $order->save();
-                });
-
-                return response()->json([
-                    'message' => 'Payment successful',
-                    'order_id' => $order->id,
-                    'payment_status' => 'paid'
-                ]);
-            }
-
-            DB::transaction(function () use ($order, $intent) {
-
-                foreach ($order->orderItems as $item) {
-
-                    $product = Product::lockForUpdate()
-                        ->find($item->product_id);
-
-                    if ($product) {
-                        $product->increment('stock', $item->quantity);
-                    }
-                }
-
-                Payment::create([
-                    'user_id' => Auth::id(),
-                    'order_id' => $order->id,
-                    'stripe_payment_intent_id' => $intent->id ?? null,
-                    'amount' => $order->total_price,
-                    'status' => 'failed',
-                    'payment_method' => 'stripe',
-                    'currency' => 'usd',
-                ]);
-
-                $order->status = 'failed';
-                $order->save();
-            });
-
-            return response()->json([
-                'message' => 'Payment failed',
-                'status' => $intent->status,
-                'reason' => $intent->last_payment_error->message ?? null
-            ], 400);
-
-        } catch (\Exception $e) {
-
-            return response()->json([
-                'message' => 'Payment error',
-                'details' => $e->getMessage()
-            ], 500);
-        }
+        return response()->json([
+            'message' => 'Payment is being processed in background',
+        ], 202);
     }
 
 
