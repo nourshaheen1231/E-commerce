@@ -53,14 +53,17 @@ class PaymentController extends Controller
             ], 400);
         }
 
+        $workerId = ($order->id % 3) + 1;
+        $targetQueue = "server_" . $workerId;
+
         ProcessOrder::dispatch(
             $order,
             Auth::id(),
             $request->scenario
-        );
+        )->onQueue($targetQueue);
 
         return response()->json([
-            'message' => 'Payment is being processed in background',
+            'message' => 'Payment is being processed in background on ' . $targetQueue,
         ], 202);
     }
 

@@ -46,6 +46,9 @@ class GenerateInvoicePDF implements ShouldQueue
         $order->invoice_path = $path;
         $order->save();
 
+        $this->order->update([
+            'processed_by' => $this->queue
+        ]);
         logger()->info("PDF Generated for Order #{$order->id}");
     }
 }

@@ -25,7 +25,7 @@ class DailySalesAnalyticsJob implements ShouldQueue
      */
     public function handle(): void
     {
-
+        logger()->info("Analytics Job started on: " . ($this->queue ?? 'server_3'));
         $date = Carbon::yesterday()->toDateString();
         // $date = Carbon::today()->toDateString();
 
@@ -59,12 +59,12 @@ class DailySalesAnalyticsJob implements ShouldQueue
                 }
             });
 
-            $averageOrderValue =
+        $averageOrderValue =
             $totalOrders > 0
-                ? $totalSales / $totalOrders
-                : 0;
+            ? $totalSales / $totalOrders
+            : 0;
 
-            DailySalesReport::updateOrCreate(
+        DailySalesReport::updateOrCreate(
             [
                 'report_date' => $date
             ],
@@ -76,5 +76,6 @@ class DailySalesAnalyticsJob implements ShouldQueue
                 'canceled_orders' => $canceledOrders,
             ]
         );
+        logger()->info("Analytics Job finished on: " . ($this->queue ?? 'server_3'));
     }
 }
