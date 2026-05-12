@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Log;
 
 class OrderController extends Controller
 {
@@ -114,15 +115,15 @@ class OrderController extends Controller
             if (!$item->product) {
                 return response()->json(['error' => 'Product not found', 'cart_item_id' => $item->id], 400);
             }
-            if ($item->quantity > $item->product->stock) {
-                return response()->json([
-                    'error' => 'Requested quantity exceeds available stock',
-                    'product_name' => $item->product->name
-                ], 400);
-            }
+            // if ($item->quantity > $item->product->stock) {
+            //     return response()->json([
+            //         'error' => 'Requested quantity exceeds available stock',
+            //         'product_name' => $item->product->name
+            //     ], 400);
+            // }
         }
 
-        DB::beginTransaction();
+        // DB::beginTransaction();
 
         try {
             $order = Order::create([
@@ -132,17 +133,22 @@ class OrderController extends Controller
 
             foreach ($cartItems as $item) {
                 $product = Product::where('id', $item->product_id)->lockForUpdate()->first();
-
+                $product = Product::where('id', $item->product_id)->first();
                 if (!$product) {
                     throw new \Exception("Product not found for id {$item->product_id}");
                 }
 
-                if ($product->stock < $item->quantity) {
-                    throw new \Exception("Insufficient stock for product {$product->name}");
-                }
-
+                // if ($product->stock < $item->quantity) {
+                //     throw new \Exception("Insufficient stock for product {$product->name}");
+                // }
+                Log::info(now());
+                // sleep(2);
                 $product->decrement('stock', $item->quantity);
 
+                // $currentStock = $product->stock;
+                // // sleep(2);
+                // $product->stock = $currentStock - $item->quantity;
+                // $product->save();
                 OrderItem::create([
                     'order_id' => $order->id,
                     'product_id' => $item->product_id,
@@ -151,11 +157,11 @@ class OrderController extends Controller
                 ]);
             }
 
-            $cart->cartItems()
-                ->whereIn('id', $request->items)
-                ->delete();
+            // $cart->cartItems()
+            //     ->whereIn('id', $request->items)
+            //     ->delete();
 
-            DB::commit();
+            // DB::commit();
 
             return response()->json([
                 'message' => 'Order created successfully',
@@ -163,7 +169,7 @@ class OrderController extends Controller
                 'total_price' => $order->total_price
             ], 201);
         } catch (\Exception $e) {
-            DB::rollBack();
+            // DB::rollBack();
 
             return response()->json([
                 'error' => 'Something went wrong',
