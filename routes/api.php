@@ -65,3 +65,10 @@ Route::prefix('payment')->middleware(['jwt.verify'])->group(function () {
     Route::post('/create-intent', [PaymentController::class, 'createPaymentIntent']);
     Route::post('/confirm', [PaymentController::class, 'confirmPayment']);
 });
+
+
+// Route::get('/test', function () {
+//     return response()->json([
+//         'message' => 'working'
+//     ]);
+// });

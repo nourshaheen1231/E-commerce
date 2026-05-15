@@ -10,18 +10,18 @@ export const options = {
 export default function () {
 
     const payload = JSON.stringify({
-        items: [38]
+        items: [11]
     });
 
     const params = {
         headers: {
             'Content-Type': 'application/json',
-            'Authorization': 'Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwOi8vbG9jYWxob3N0OjgwMDAvYXBpL2F1dGgvbG9naW4iLCJpYXQiOjE3Nzg1OTY3NjcsImV4cCI6MTc3ODYwMDM2NywibmJmIjoxNzc4NTk2NzY3LCJqdGkiOiIxNUJSQ1lTSXlHdEw3VGQwIiwic3ViIjoiMSIsInBydiI6IjIzYmQ1Yzg5NDlmNjAwYWRiMzllNzAxYzQwMDg3MmRiN2E1OTc2ZjcifQ.rx8qPA-hhOd8V1h6T0UIGmsjm3FZVzKTIXkev0fQjw0'
+            'Authorization': 'Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwOi8vcHBwLnRlc3QvYXBpL2F1dGgvcmVnaXN0ZXIiLCJpYXQiOjE3Nzg4NTA5MDMsImV4cCI6MTc3ODg1NDUwMywibmJmIjoxNzc4ODUwOTAzLCJqdGkiOiJ1cThzV2hEcm1hWmpqbzZ6Iiwic3ViIjoiMjAyIiwicHJ2IjoiMjNiZDVjODk0OWY2MDBhZGIzOWU3MDFjNDAwODcyZGI3YTU5NzZmNyJ9.2wxq-QaI2SDahPceSlHc3XqKvmKeEv7w6fOsc-RT-Q4'
         },
     };
 
     let res = http.post(
-        'http://localhost:8000/api/orders/create',
+        'http://ppp.test/api/orders/create',
         payload,
         params
     );
@@ -32,3 +32,5 @@ export default function () {
     console.log(res.status);
     console.log(res.body);
 }
+
+// k6 run race_test.js
