@@ -34,4 +34,3 @@ export default function () {
 }
 
 // k6 run race_test.js
-//http://ppp.test/telescope
