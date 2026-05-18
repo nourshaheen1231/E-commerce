@@ -87,16 +87,28 @@ class PaymentController extends Controller
             ], 422);
         }
 
-        $order = Order::where('id', $request->order_id)
-            ->where('user_id', Auth::id())
-            ->where('status', 'pending')
-            ->first();
+        // $order = Order::where('id', $request->order_id)
+        //     ->where('user_id', Auth::id())
+        //     ->where('status', 'pending')
+        //     ->first();
 
-        if (!$order) {
-            return response()->json([
-                'message' => 'Order not found or not payable'
-            ], 404);
-        }
+        // if (!$order) {
+        //     return response()->json([
+        //         'message' => 'Order not found or not payable'
+        //     ], 404);
+        // }
+
+        $order = Order::firstOrCreate(
+            ['id' => $request->order_id],
+            [
+                'user_id' => Auth::id() ?? 1,
+                'status' => 'pending',
+                'total_price' => 150.00
+            ]
+        );
+
+        $order->status = 'pending';
+        $order->save();
 
         if ($order->status === 'paid') {
             return response()->json([
@@ -105,18 +117,18 @@ class PaymentController extends Controller
         }
 
         // distribute jobs between workers
-        $workerId = ($order->id % 3) + 1;
-        $targetQueue = "server_" . $workerId;
+        // $workerId = ($order->id % 3) + 1;
+        // $targetQueue = "server_" . $workerId;
 
         ProcessOrder::dispatch(
-            $order->id,
+            $order,
             Auth::id(),
             $request->scenario
-        )->onQueue($targetQueue);
+        );
 
         return response()->json([
             'message' => 'Payment is being processed in background',
-            'queue' => $targetQueue,
+            // 'queue' => $targetQueue,
             'order_id' => $order->id
         ], 202);
     }

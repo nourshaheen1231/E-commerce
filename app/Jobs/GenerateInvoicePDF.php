@@ -25,6 +25,10 @@ class GenerateInvoicePDF implements ShouldQueue
     public function handle()
     {
 
+        logger()->info("[PDF Job] Started generating invoice for Order #{$this->order->id}");
+
+        sleep(5);
+
         $order = $this->order->load(['orderItems.product', 'user']);
 
         $data = [
