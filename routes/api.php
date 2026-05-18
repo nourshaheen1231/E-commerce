@@ -63,7 +63,7 @@ Route::middleware('jwt.verify')->prefix('orders')->group(function () {
 
 Route::prefix('payment')->middleware(['jwt.verify'])->group(function () {
     Route::post('/create-intent', [PaymentController::class, 'createPaymentIntent']);
-    Route::post('/confirm', [PaymentController::class, 'confirmPayment']);
+    // Route::post('/confirm', [PaymentController::class, 'confirmPayment']);
 });
 
 

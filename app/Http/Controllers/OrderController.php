@@ -195,7 +195,6 @@ class OrderController extends Controller
             return response()->json(['error' => 'Cart not found'], 404);
         }
 
-        // ✅ جلب cart items بدون product eager load هون
         $cartItemIds = collect($request->items);
         $cartItems = $cart->cartItems()
             ->whereIn('id', $cartItemIds)
@@ -212,14 +211,12 @@ class OrderController extends Controller
         try {
             $order = DB::transaction(function () use ($user, $cartItems) {
 
-                // ✅ lockForUpdate على المنتجات أول شي داخل الترانزاكشن
                 $productIds = $cartItems->pluck('product_id');
                 $products = Product::whereIn('id', $productIds)
                     ->lockForUpdate()
                     ->get()
                     ->keyBy('id');
 
-                // ✅ التحقق من الـ stock بعد الـ lock
                 foreach ($cartItems as $item) {
                     $product = $products->get($item->product_id);
 
@@ -228,7 +225,6 @@ class OrderController extends Controller
                     }
 
                     if ($product->stock < $item->quantity) {
-                        // ✅ Custom exception تفرق بين business error وserver error
                         throw new \App\Exceptions\InsufficientStockException(
                             "Requested quantity exceeds available stock",
                             $product->name
@@ -246,7 +242,7 @@ class OrderController extends Controller
                 foreach ($cartItems as $item) {
                     $product = $products->get($item->product_id);
 
-                    // sleep(2) شيله من production، هو بس للتست
+                    // sleep(2);
                     $product->decrement('stock', $item->quantity);
 
                     OrderItem::create([
@@ -266,7 +262,6 @@ class OrderController extends Controller
                 'total_price' => $order->total_price
             ], 201);
         } catch (\App\Exceptions\InsufficientStockException $e) {
-            // ✅ هاد بيرجع 400 مش 500
             return response()->json([
                 'error'        => $e->getMessage(),
                 'product_name' => $e->getProductName()
