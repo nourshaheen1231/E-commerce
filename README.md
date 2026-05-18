@@ -125,3 +125,4 @@ Read the combined proof metrics:
 k6 terminal: Will print HTTP response times under ~50ms-100ms returning 202 Accepted.
 
 laravel.log: Will prove that the invoice PDF took exactly 5 seconds (sleep(5)) to cook inside the background runner, entirely independent of the user's fast response time.
+**ملف التقرير:** [عرض التقرير / تنزيل PDF](./تقرير مشروع البرمجة المتوازية 2026.pdf)
