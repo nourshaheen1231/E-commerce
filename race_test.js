@@ -10,13 +10,13 @@ export const options = {
 export default function () {
 
     const payload = JSON.stringify({
-        items: [11]
+        items: [13]
     });
 
     const params = {
         headers: {
             'Content-Type': 'application/json',
-            'Authorization': 'Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwOi8vcHBwLnRlc3QvYXBpL2F1dGgvcmVnaXN0ZXIiLCJpYXQiOjE3Nzg4NTA5MDMsImV4cCI6MTc3ODg1NDUwMywibmJmIjoxNzc4ODUwOTAzLCJqdGkiOiJ1cThzV2hEcm1hWmpqbzZ6Iiwic3ViIjoiMjAyIiwicHJ2IjoiMjNiZDVjODk0OWY2MDBhZGIzOWU3MDFjNDAwODcyZGI3YTU5NzZmNyJ9.2wxq-QaI2SDahPceSlHc3XqKvmKeEv7w6fOsc-RT-Q4'
+            'Authorization': 'Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwOi8vcHBwLnRlc3QvYXBpL2F1dGgvbG9naW4iLCJpYXQiOjE3NzkwODI4MTAsImV4cCI6MTc3OTA4NjQxMCwibmJmIjoxNzc5MDgyODEwLCJqdGkiOiJ5blNWekxuOUVrSkZwWmlGIiwic3ViIjoiMjAzIiwicHJ2IjoiMjNiZDVjODk0OWY2MDBhZGIzOWU3MDFjNDAwODcyZGI3YTU5NzZmNyJ9.tmpE9nbXs7A9FSaddh5A1qbRuiFR9jq-o2m40w7bzQc'
         },
     };
 
@@ -34,3 +34,4 @@ export default function () {
 }
 
 // k6 run race_test.js
+//http://ppp.test/telescope

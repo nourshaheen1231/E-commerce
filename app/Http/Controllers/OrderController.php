@@ -76,19 +76,117 @@ class OrderController extends Controller
     }
 
 
+    // public function create(Request $request)
+    // {
+    //     $user = Auth::user();
+
+    //     $validator = Validator::make($request->all(), [
+    //         'items' => 'required|array|min:1',
+    //         'items.*' => 'integer|exists:cart_items,id',
+    //     ]);
+
+    //     if ($validator->fails()) {
+    //         return response()->json([
+    //             'message' => 'Validation failed',
+    //             'errors' => $validator->errors()
+    //         ], 422);
+    //     }
+
+    //     $cart = $user->cart;
+    //     if (!$cart) {
+    //         return response()->json(['error' => 'Cart not found'], 404);
+    //     }
+
+    //     $cartItems = $cart->cartItems()
+    //         ->whereIn('id', $request->items)
+    //         ->with('product') // eager load product
+    //         ->get();
+
+    //     if ($cartItems->isEmpty()) {
+    //         return response()->json(['error' => 'No valid cart items found'], 400);
+    //     }
+
+    //     if ($cartItems->count() !== count($request->items)) {
+    //         return response()->json(['error' => 'Some cart items are invalid'], 400);
+    //     }
+
+    //     // تحقق أولي من الكمية مقابل المخزون قبل بدء الترانزاكشن
+    //     foreach ($cartItems as $item) {
+    //         if (!$item->product) {
+    //             return response()->json(['error' => 'Product not found', 'cart_item_id' => $item->id], 400);
+    //         }
+    //         if ($item->quantity > $item->product->stock) {
+    //             return response()->json([
+    //                 'error' => 'Requested quantity exceeds available stock',
+    //                 'product_name' => $item->product->name
+    //             ], 400);
+    //         }
+    //     }
+
+    //     DB::beginTransaction();
+
+    //     try {
+    //         $order = Order::create([
+    //             'user_id' => $user->id,
+    //             'total_price' => $cartItems->sum(fn($i) => $i->price * $i->quantity),
+    //         ]);
+
+    //         foreach ($cartItems as $item) {
+    //             $product = Product::where('id', $item->product_id)->lockForUpdate()->first();
+    //             // $product = Product::where('id', $item->product_id)->first();
+    //             if (!$product) {
+    //                 throw new \Exception("Product not found for id {$item->product_id}");
+    //             }
+
+    //             if ($product->stock < $item->quantity) {
+    //                 throw new \Exception("Insufficient stock for product {$product->name}");
+    //             }
+    //             Log::info(now());
+    //             sleep(2);
+    //             $product->decrement('stock', $item->quantity);
+
+    //             OrderItem::create([
+    //                 'order_id' => $order->id,
+    //                 'product_id' => $item->product_id,
+    //                 'quantity' => $item->quantity,
+    //                 'price' => $item->price,
+    //             ]);
+    //         }
+
+    //         // $cart->cartItems()
+    //         //     ->whereIn('id', $request->items)
+    //         //     ->delete();
+
+    //         DB::commit();
+
+    //         return response()->json([
+    //             'message' => 'Order created successfully',
+    //             'order_id' => $order->id,
+    //             'total_price' => $order->total_price
+    //         ], 201);
+    //     } catch (\Exception $e) {
+    //         DB::rollBack();
+
+    //         return response()->json([
+    //             'error' => 'Something went wrong',
+    //             'details' => $e->getMessage()
+    //         ], 500);
+    //     }
+    // }
+
     public function create(Request $request)
     {
         $user = Auth::user();
 
         $validator = Validator::make($request->all(), [
-            'items' => 'required|array|min:1',
+            'items'   => 'required|array|min:1',
             'items.*' => 'integer|exists:cart_items,id',
         ]);
 
         if ($validator->fails()) {
             return response()->json([
                 'message' => 'Validation failed',
-                'errors' => $validator->errors()
+                'errors'  => $validator->errors()
             ], 422);
         }
 
@@ -97,78 +195,86 @@ class OrderController extends Controller
             return response()->json(['error' => 'Cart not found'], 404);
         }
 
+        // ✅ جلب cart items بدون product eager load هون
+        $cartItemIds = collect($request->items);
         $cartItems = $cart->cartItems()
-            ->whereIn('id', $request->items)
-            ->with('product') // eager load product
+            ->whereIn('id', $cartItemIds)
             ->get();
 
         if ($cartItems->isEmpty()) {
             return response()->json(['error' => 'No valid cart items found'], 400);
         }
 
-        if ($cartItems->count() !== count($request->items)) {
+        if ($cartItems->count() !== $cartItemIds->count()) {
             return response()->json(['error' => 'Some cart items are invalid'], 400);
         }
 
-        // تحقق أولي من الكمية مقابل المخزون قبل بدء الترانزاكشن
-        foreach ($cartItems as $item) {
-            if (!$item->product) {
-                return response()->json(['error' => 'Product not found', 'cart_item_id' => $item->id], 400);
-            }
-            if ($item->quantity > $item->product->stock) {
-                return response()->json([
-                    'error' => 'Requested quantity exceeds available stock',
-                    'product_name' => $item->product->name
-                ], 400);
-            }
-        }
-
-        DB::beginTransaction();
-
         try {
-            $order = Order::create([
-                'user_id' => $user->id,
-                'total_price' => $cartItems->sum(fn($i) => $i->price * $i->quantity),
-            ]);
+            $order = DB::transaction(function () use ($user, $cartItems) {
 
-            foreach ($cartItems as $item) {
-                $product = Product::where('id', $item->product_id)->lockForUpdate()->first();
-                // $product = Product::where('id', $item->product_id)->first();
-                if (!$product) {
-                    throw new \Exception("Product not found for id {$item->product_id}");
+                // ✅ lockForUpdate على المنتجات أول شي داخل الترانزاكشن
+                $productIds = $cartItems->pluck('product_id');
+                $products = Product::whereIn('id', $productIds)
+                    ->lockForUpdate()
+                    ->get()
+                    ->keyBy('id');
+
+                // ✅ التحقق من الـ stock بعد الـ lock
+                foreach ($cartItems as $item) {
+                    $product = $products->get($item->product_id);
+
+                    if (!$product) {
+                        throw new \Exception("Product not found for id {$item->product_id}");
+                    }
+
+                    if ($product->stock < $item->quantity) {
+                        // ✅ Custom exception تفرق بين business error وserver error
+                        throw new \App\Exceptions\InsufficientStockException(
+                            "Requested quantity exceeds available stock",
+                            $product->name
+                        );
+                    }
                 }
 
-                if ($product->stock < $item->quantity) {
-                    throw new \Exception("Insufficient stock for product {$product->name}");
-                }
-                Log::info(now());
-                sleep(2);
-                $product->decrement('stock', $item->quantity);
+                $totalPrice = $cartItems->sum(fn($i) => $i->price * $i->quantity);
 
-                OrderItem::create([
-                    'order_id' => $order->id,
-                    'product_id' => $item->product_id,
-                    'quantity' => $item->quantity,
-                    'price' => $item->price,
+                $order = Order::create([
+                    'user_id'     => $user->id,
+                    'total_price' => $totalPrice,
                 ]);
-            }
 
-            // $cart->cartItems()
-            //     ->whereIn('id', $request->items)
-            //     ->delete();
+                foreach ($cartItems as $item) {
+                    $product = $products->get($item->product_id);
 
-            DB::commit();
+                    // sleep(2) شيله من production، هو بس للتست
+                    $product->decrement('stock', $item->quantity);
+
+                    OrderItem::create([
+                        'order_id'   => $order->id,
+                        'product_id' => $item->product_id,
+                        'quantity'   => $item->quantity,
+                        'price'      => $item->price,
+                    ]);
+                }
+
+                return $order;
+            });
 
             return response()->json([
-                'message' => 'Order created successfully',
-                'order_id' => $order->id,
+                'message'     => 'Order created successfully',
+                'order_id'    => $order->id,
                 'total_price' => $order->total_price
             ], 201);
-        } catch (\Exception $e) {
-            DB::rollBack();
-
+        } catch (\App\Exceptions\InsufficientStockException $e) {
+            // ✅ هاد بيرجع 400 مش 500
             return response()->json([
-                'error' => 'Something went wrong',
+                'error'        => $e->getMessage(),
+                'product_name' => $e->getProductName()
+            ], 400);
+        } catch (\Exception $e) {
+            Log::error('Order creation failed: ' . $e->getMessage());
+            return response()->json([
+                'error'   => 'Something went wrong',
                 'details' => $e->getMessage()
             ], 500);
         }

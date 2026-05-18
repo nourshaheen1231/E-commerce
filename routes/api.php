@@ -72,3 +72,15 @@ Route::prefix('payment')->middleware(['jwt.verify'])->group(function () {
 //         'message' => 'working'
 //     ]);
 // });
+
+
+ // // محاكاة لعمل 3 سيرفرات 
+                    // $workerId = ($this->order->id % 3) + 1;
+                    // $targetQueue = "server_" . $workerId;
+                    // // المهمة الثانوية :توليد فاتورة
+                    // GenerateInvoicePDF::dispatch($this->order)->onQueue($targetQueue);
+
+                    // logger()->info("Order #{$this->order->id}: Payment processed by {$this->queue}. Invoice sent to {$targetQueue}.");
+                    //php artisan queue:work --queue=server_1
+//php artisan queue:work --queue=server_2
+//php artisan queue:work --queue=server_3
