@@ -23,23 +23,74 @@ class PaymentController extends Controller
     }
 
 
+    // public function createPaymentIntent(Request $request)
+    // {
+    //     $validator = Validator::make($request->all(), [
+    //         'order_id' => 'required|exists:orders,id',
+    //         'scenario' => 'nullable|string'
+    //     ]);
+
+    //     if ($validator->fails()) {
+    //         return response()->json([
+    //             'error' => $validator->errors()
+    //         ], 422);
+    //     }
+
+    //     $order = Order::where('user_id', Auth::id())
+    //         ->where('status', 'pending')
+    //         ->with('orderItems')
+    //         ->find($request->order_id);
+
+    //     if (!$order) {
+    //         return response()->json([
+    //             'message' => 'Order not found or not payable'
+    //         ], 404);
+    //     }
+
+    //     if ($order->status == 'paid') {
+    //         return response()->json([
+    //             'message' => 'Order already paid'
+    //         ], 400);
+    //     }
+
+    //     $workerId = ($order->id % 3) + 1;
+    //     $targetQueue = "server_" . $workerId;
+
+    //     ProcessOrder::dispatch(
+    //         $order,
+    //         Auth::id(),
+    //         $request->scenario
+    //     )->onQueue($targetQueue);
+    //     // ProcessOrder::dispatch(
+    //     //     $order,
+    //     //     Auth::id(),
+    //     //     $request->scenario
+    //     // )->onQueue($targetQueue);
+
+    //     $targetQueue = 'server_1'; // since we're dispatching to 'default' queue
+
+    //     return response()->json([
+    //         'message' => 'Payment is being processed in background on ' . $targetQueue,
+    //     ], 202);
+    // }
+
     public function createPaymentIntent(Request $request)
     {
         $validator = Validator::make($request->all(), [
             'order_id' => 'required|exists:orders,id',
-            'scenario' => 'nullable|string'
+            'scenario' => 'nullable|string',
         ]);
 
         if ($validator->fails()) {
             return response()->json([
-                'error' => $validator->errors()
+                'errors' => $validator->errors()
             ], 422);
         }
 
-        $order = Order::where('user_id', Auth::id())
+        $order = Order::where('id', $request->order_id)
+            ->where('user_id', Auth::id())
             ->where('status', 'pending')
-            ->with('orderItems')
-            ->find($request->order_id);
+            ->first();
 
         if (!$order) {
             return response()->json([
@@ -47,30 +98,26 @@ class PaymentController extends Controller
             ], 404);
         }
 
-        if ($order->status == 'paid') {
+        if ($order->status === 'paid') {
             return response()->json([
                 'message' => 'Order already paid'
             ], 400);
         }
 
-        // $workerId = ($order->id % 3) + 1;
-        // $targetQueue = "server_" . $workerId;
+        // distribute jobs between workers
+        $workerId = ($order->id % 3) + 1;
+        $targetQueue = "server_" . $workerId;
 
-        // ProcessOrder::dispatch(
-        //     $order,
-        //     Auth::id(),
-        //     $request->scenario
-        // )->onQueue($targetQueue);
         ProcessOrder::dispatch(
-            $order,
+            $order->id,
             Auth::id(),
             $request->scenario
-        );
-
-        $targetQueue = 'server_1'; // since we're dispatching to 'default' queue
+        )->onQueue($targetQueue);
 
         return response()->json([
-            'message' => 'Payment is being processed in background on ' . $targetQueue,
+            'message' => 'Payment is being processed in background',
+            'queue' => $targetQueue,
+            'order_id' => $order->id
         ], 202);
     }
 
@@ -152,7 +199,7 @@ class PaymentController extends Controller
                 throw new \Exception('Refund failed');
             }
 
-            $order = $payment->order;
+            $ordrer = $payment->order;
 
             foreach ($order->orderItems as $item) {
                 $product = Product::lockForUpdate()->find($item->product_id);
@@ -292,7 +339,7 @@ class PaymentController extends Controller
     //     }
     // }
 
-    
+
 
     // public function refund($paymentIntentId)
     // {
@@ -301,7 +348,7 @@ class PaymentController extends Controller
     //         ->first();
 
     //     if (!$payment || $payment->status !== 'paid') {
-    //         return false; 
+    //         return false;
     //     }
 
     //     \Stripe\Refund::create([
@@ -311,5 +358,5 @@ class PaymentController extends Controller
     //     $payment->status = 'canceled';
     //     $payment->save();
 
-    //     return true; 
+    //     return true;
     // }

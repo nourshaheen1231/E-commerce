@@ -7,9 +7,9 @@ export let options = {
     // duration: '1m',
 };
 
-const BASE_URL = 'http://ppp.test';
+const BASE_URL = 'http://localhost';
 
-const TOKEN = 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwOi8vcHBwLnRlc3QvYXBpL2F1dGgvbG9naW4iLCJpYXQiOjE3NzkwODM5NDUsImV4cCI6MTc3OTA4NzU0NSwibmJmIjoxNzc5MDgzOTQ1LCJqdGkiOiJFUnVwTXA1UEU4TmdjQnhvIiwic3ViIjoiMjAzIiwicHJ2IjoiMjNiZDVjODk0OWY2MDBhZGIzOWU3MDFjNDAwODcyZGI3YTU5NzZmNyJ9.-mL7Mo6QMk0mxs1QsflvRyt7JshJ4-Ifk4oy72wF81E';
+const TOKEN = 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwOi8vbG9jYWxob3N0L2FwaS9hdXRoL2xvZ2luIiwiaWF0IjoxNzc5MDk1NTU1LCJleHAiOjE3NzkwOTkxNTUsIm5iZiI6MTc3OTA5NTU1NSwianRpIjoiWTBVYVZ4NVVXU0hEQWVsWiIsInN1YiI6IjIwMiIsInBydiI6IjIzYmQ1Yzg5NDlmNjAwYWRiMzllNzAxYzQwMDg3MmRiN2E1OTc2ZjcifQ.eGM-UHSPcpvc_xFahJF-3ai1A4_C1HuodqCHC5t3ymQ';
 
 const params = {
     headers: {
@@ -22,7 +22,7 @@ export default function () {
 
     // CREATE ORDER
     let orderPayload = JSON.stringify({
-        items: [14]
+        items: [3]
     });
 
     let orderRes = http.post(

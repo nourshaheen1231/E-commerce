@@ -246,7 +246,7 @@ class OrderController extends Controller
                 foreach ($cartItems as $item) {
                     $product = $products->get($item->product_id);
 
-                    // sleep(2) شيله من production، هو بس للتست
+                    sleep(2); // شيله من production، هو بس للتست
                     $product->decrement('stock', $item->quantity);
 
                     OrderItem::create([
