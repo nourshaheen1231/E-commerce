@@ -8,6 +8,7 @@ use App\Models\Product;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Stripe\Stripe;
 
 class ProcessOrder implements ShouldQueue
@@ -30,6 +31,9 @@ class ProcessOrder implements ShouldQueue
         $this->order->update([
             'processed_by' => $this->queue ?? 'default'
         ]);
+
+        $currentQueue = $this->queue ?? 'default';
+        Log::info("Background Processing: Order #{$this->order->id} is being handled by Worker: {$currentQueue}");
 
         Stripe::setApiKey(env('STRIPE_SECRET'));
         $paymentMethod = 'pm_card_visa';

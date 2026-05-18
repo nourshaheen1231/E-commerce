@@ -218,6 +218,30 @@ return [
             'tries' => 3,
             'timeout' => 90,
         ],
+
+        'supervisor-server-1' => [
+            'connection' => 'redis',
+            'queue' => ['server_1'],
+            'balance' => 'simple',
+            'processes' => 2,
+            'tries' => 3,
+        ],
+
+        'supervisor-server-2' => [
+            'connection' => 'redis',
+            'queue' => ['server_2'],
+            'balance' => 'simple',
+            'processes' => 2,
+            'tries' => 3,
+        ],
+
+        'supervisor-server-3' => [
+            'connection' => 'redis',
+            'queue' => ['server_3'],
+            'balance' => 'simple',
+            'processes' => 2,
+            'tries' => 3,
+        ],
     ],
 
     'environments' => [

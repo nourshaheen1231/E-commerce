@@ -122,15 +122,24 @@ class PaymentController extends Controller
             ], 400);
         }
 
+
+
+        // ProcessOrder::dispatch(
+        //     $order,
+        //     Auth::id(),
+        //     $request->scenario
+        // )->onQueue('payments');
+
+
         // distribute jobs between workers
-        // $workerId = ($order->id % 3) + 1;
-        // $targetQueue = "server_" . $workerId;
+        $workerId = ($order->id % 3) + 1;
+        $targetQueue = "server_" . $workerId;
 
         ProcessOrder::dispatch(
             $order,
             Auth::id(),
             $request->scenario
-        )->onQueue('payments');
+        )->onQueue($targetQueue);
 
 
         return response()->json([
