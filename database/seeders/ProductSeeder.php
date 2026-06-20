@@ -1,4 +1,5 @@
 <?php
+
 namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
@@ -46,11 +47,6 @@ class ProductSeeder extends Seeder
                 ->limit($currentChunkSize)
                 ->get();
 
-            Redis::pipeline(function ($pipe) use ($insertedProducts) {
-                foreach ($insertedProducts as $product) {
-                    $pipe->set("product:{$product->id}:stock", $product->stock);
-                }
-            });
 
             $inserted = $i + $currentChunkSize;
             $this->command->info("Inserted {$inserted} / {$totalRecords} products.");

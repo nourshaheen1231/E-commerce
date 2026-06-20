@@ -11,9 +11,9 @@ export const options = {
 const BASE_URL = 'http://127.0.0.1:8080/api';
 const SEARCH_TERMS = ['laptop', 'phone', 'shoes', 'watch', 'camera', 'samsung', 'apple', 'bag'];
 
-const PRODUCT_CATALOG = Array.from({length: 20}, (_, i) => i + 1);
+const PRODUCT_CATALOG = Array.from({ length: 20 }, (_, i) => i + 1);
 
-let redisReserveTime = new Trend('redis_reserve_time_ms');
+let mysqlLockWaitTime = new Trend('mysql_lock_wait_time_ms');
 let phpProcessingTime = new Trend('php_processing_time_ms');
 let nginxTotalTime = new Trend('nginx_total_time_ms');
 let nginxUpstreamTime = new Trend('nginx_upstream_time_ms');
@@ -54,7 +54,7 @@ function addRandomProductsToCart(params) {
     batchResponses.forEach(res => {
         let isSuccess = res.status === 200 || res.status === 201;
         let isAlreadyExist = res.status === 409;
-        let isOutOfStock = res.status === 400; 
+        let isOutOfStock = res.status === 400;
 
         check(res, { 'Cart Item Added/Exists/Out of Stock': (r) => isSuccess || isAlreadyExist || isOutOfStock });
 
@@ -101,6 +101,7 @@ function processCheckout(params, cartItems, traceId) {
 
     let itemsLogString = cartItems.map(i => `P${i.productId}:Q${i.quantity}`).join(', ');
 
+
     if (isSuccessOrder) {
         console.log(`[${traceId}] SUCCESS | User ${__VU} bought: [${itemsLogString}]`);
     } else if (isLogicalError) {
@@ -120,10 +121,14 @@ function processCheckout(params, cartItems, traceId) {
         try {
             let body = res.json();
             if (body && body.benchmarks) {
-                if (body.benchmarks.redis_reserve_time_ms) redisReserveTime.add(body.benchmarks.redis_reserve_time_ms);
-                if (body.benchmarks.total_php_time_ms) phpProcessingTime.add(body.benchmarks.total_php_time_ms);
+                if (body.benchmarks['2_row_lock_wait_ms'] !== undefined) {
+                    mysqlLockWaitTime.add(body.benchmarks['2_row_lock_wait_ms']);
+                }
+                if (body.benchmarks.total_php_time_ms !== undefined) {
+                    phpProcessingTime.add(body.benchmarks.total_php_time_ms);
+                }
             }
-        } catch (e) {}
+        } catch (e) { }
     }
 
     if (res.headers['X-Request-Time']) nginxTotalTime.add(parseFloat(res.headers['X-Request-Time']) * 1000);

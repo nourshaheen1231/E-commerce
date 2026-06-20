@@ -2,7 +2,7 @@ import http from 'k6/http';
 import { check, sleep, fail } from 'k6';
 import { Trend, Counter } from 'k6/metrics';
 
-let redisReserveTime = new Trend('redis_reserve_time_ms');
+let mysqlLockWaitTime = new Trend('mysql_lock_wait_time_ms');
 let phpProcessingTime = new Trend('php_processing_time_ms');
 let nginxTotalTime = new Trend('nginx_total_time_ms');
 let nginxUpstreamTime = new Trend('nginx_upstream_time_ms');
@@ -122,6 +122,7 @@ export default function (tokens) {
             'Technical Failure - Server Crash (5xx)': () => isTechnicalError,
         });
 
+
         if (isLogicalError) {
             logicalErrors.add(1);
         }
@@ -136,14 +137,15 @@ export default function (tokens) {
             try {
                 let body = orderRes.json();
                 if (body && body.benchmarks) {
-                    if (body.benchmarks.redis_reserve_time_ms) {
-                        redisReserveTime.add(body.benchmarks.redis_reserve_time_ms);
+                    //  لازم bracket notation لأن المفتاح يبدأ برقم — الوصول بالنقطة body.benchmarks.2_row_lock_wait_ms خطأ صياغة في JS
+                    if (body.benchmarks['2_row_lock_wait_ms'] !== undefined) {
+                        mysqlLockWaitTime.add(body.benchmarks['2_row_lock_wait_ms']);
                     }
-                    if (body.benchmarks.total_php_time_ms) {
+                    if (body.benchmarks.total_php_time_ms !== undefined) {
                         phpProcessingTime.add(body.benchmarks.total_php_time_ms);
                     }
                 }
-            } catch (e) {}
+            } catch (e) { }
         }
 
         if (orderRes.headers['X-Request-Time']) {

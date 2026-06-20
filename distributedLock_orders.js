@@ -16,13 +16,13 @@ export default function () {
     const url = 'http://127.0.0.1:8080/api/orders/create';
 
     const payload = JSON.stringify({
-        items: [11]
+        items: [15]
     });
 
     const params = {
         headers: {
             'Content-Type': 'application/json',
-            'Authorization': 'Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwOi8vMTI3LjAuMC4xOjgwODAvYXBpL2F1dGgvbG9naW4iLCJpYXQiOjE3ODE4NzkzOTAsImV4cCI6MTc4MTg4Mjk5MCwibmJmIjoxNzgxODc5MzkwLCJqdGkiOiJxM2plZDVnVFpUMmFpaUZTIiwic3ViIjoiMjAyIiwicHJ2IjoiMjNiZDVjODk0OWY2MDBhZGIzOWU3MDFjNDAwODcyZGI3YTU5NzZmNyJ9.jboNLlSYSipvfdPwP9RAiNnxm2AnHR3DNHjbd3ZxB80',
+            'Authorization': 'Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwOi8vMTI3LjAuMC4xOjgwODAvYXBpL2F1dGgvbG9naW4iLCJpYXQiOjE3ODE5ODczMjgsImV4cCI6MTc4MTk5MDkyOCwibmJmIjoxNzgxOTg3MzI4LCJqdGkiOiJ5V0RRUUFEckwyNkgxZXRsIiwic3ViIjoiMTAxIiwicHJ2IjoiMjNiZDVjODk0OWY2MDBhZGIzOWU3MDFjNDAwODcyZGI3YTU5NzZmNyJ9.WrpNLuiLEh6NgzB9j266E1becsS2EnAgk8lG47lhTYQ',
         },
     };
 
@@ -31,7 +31,7 @@ export default function () {
     if (res.status !== 201 && res.status !== 423) {
         console.log(` Failed with Status ${res.status}: ${res.body}`);
     }
-    
+
     check(res, {
         'Success (201)': (r) => r.status === 201,
         'Blocked (423)': (r) => r.status === 423,
