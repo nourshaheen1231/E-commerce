@@ -28,6 +28,10 @@ export default function () {
 
     const res = http.post(url, payload, params);
 
+    if (res.status !== 201 && res.status !== 423) {
+        console.log(` Failed with Status ${res.status}: ${res.body}`);
+    }
+    
     check(res, {
         'Success (201)': (r) => r.status === 201,
         'Blocked (423)': (r) => r.status === 423,

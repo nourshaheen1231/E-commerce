@@ -127,6 +127,61 @@ return [
             'path' => storage_path('logs/laravel.log'),
         ],
 
+        'security' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/security.log'),
+            'level' => env('LOG_LEVEL', 'debug'),
+            'days' => 14,
+            'tap' => [App\Logging\JsonFormatterTap::class],
+        ],
+
+
+        'inventory' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/inventory.log'),
+            'level' => 'info',
+            'days' => 30,
+            'tap' => [App\Logging\JsonFormatterTap::class],
+        ],
+
+        'orders' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/orders.log'),
+            'level' => 'info',
+            'days' => 90,
+            'tap' => [App\Logging\JsonFormatterTap::class],
+        ],
+
+        'payments' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/payments.log'),
+            'level' => 'debug',
+            'days' => 90,
+            'tap' => [App\Logging\JsonFormatterTap::class],
+        ],
+
+        'performance' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/performance.log'),
+            'level' => 'info',
+            'days' => 7,
+            'tap' => [App\Logging\JsonFormatterTap::class],
+        ],
+        'analytics' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/analytics.log'),
+            'level' => 'info',
+            'days' => 30,
+            'tap' => [App\Logging\JsonFormatterTap::class],
+        ],
+        'order_locks' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/order_locks.log'),
+            'level' => 'warning',
+            'days' => 14,
+            'tap' => [App\Logging\JsonFormatterTap::class],
+        ],
+
     ],
 
 ];

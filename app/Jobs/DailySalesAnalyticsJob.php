@@ -1,5 +1,4 @@
 <?php
-
 namespace App\Jobs;
 
 use App\Models\Order;
@@ -11,6 +10,7 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log; 
 
 class DailySalesAnalyticsJob implements ShouldQueue
 {
@@ -18,21 +18,24 @@ class DailySalesAnalyticsJob implements ShouldQueue
 
     public function handle(): void
     {
-        $lock = Cache::lock(
-            'daily-sales-report',
-            300
-        );
+        $lock = Cache::lock('daily-sales-report', 300);
 
         if (!$lock->get()) {
-            logger()->info('Another worker is generating the report');
+            Log::channel('analytics')->warning('Analytics Job Lock Acquisition Failed', [
+                'reason' => 'Another worker is already generating the report',
+                'lock_key' => 'daily-sales-report'
+            ]);
             return;
         }
 
         try {
-
-            logger()->info("Analytics Job started");
-            sleep(5);
             $date = Carbon::yesterday()->toDateString();
+
+            Log::channel('analytics')->info('Daily Sales Analytics Job Started', [
+                'target_date' => $date
+            ]);
+
+            sleep(5);
 
             $totalOrders = 0;
             $totalSales = 0;
@@ -45,8 +48,11 @@ class DailySalesAnalyticsJob implements ShouldQueue
                 &$paidOrders,
                 &$canceledOrders
             ) {
-
-                logger()->info("=== [Chunk Detected] === number of chunks in batch " . $orders->count() . " | first id : " . $orders->first()->id . " | last id: " . $orders->last()->id);
+                Log::channel('analytics')->info('Analytics Job Chunk Processed', [
+                    'chunk_items_count' => $orders->count(),
+                    'first_order_id' => $orders->first()?->id,
+                    'last_order_id' => $orders->last()?->id,
+                ]);
 
                 foreach ($orders as $order) {
                     $totalOrders++;
@@ -75,7 +81,24 @@ class DailySalesAnalyticsJob implements ShouldQueue
                 ]
             );
 
-            logger()->info("Analytics Job finished");
+            Log::channel('analytics')->info('Daily Sales Analytics Job Finished Successfully', [
+                'target_date' => $date,
+                'metrics' => [
+                    'total_processed_orders' => $totalOrders,
+                    'total_sales_amount' => $totalSales,
+                    'average_order_value' => $averageOrderValue,
+                    'paid_count' => $paidOrders,
+                    'canceled_count' => $canceledOrders
+                ]
+            ]);
+        } catch (\Exception $e) {
+            Log::channel('analytics')->error('Daily Sales Analytics Job Failed', [
+                'target_date' => $date ?? null,
+                'error_message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine()
+            ]);
+            throw $e;
         } finally {
             $lock->release();
         }

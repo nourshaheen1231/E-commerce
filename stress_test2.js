@@ -54,9 +54,8 @@ function addRandomProductsToCart(params) {
     batchResponses.forEach(res => {
         let isSuccess = res.status === 200 || res.status === 201;
         let isAlreadyExist = res.status === 409;
-        let isOutOfStock = res.status === 400; // <<< إضافة تعريف لحالة نفاد المخزون
+        let isOutOfStock = res.status === 400; 
 
-        // تحديث الـ Check ليقبل الحالات الثلاث كاستجابات منطقية متوقعة
         check(res, { 'Cart Item Added/Exists/Out of Stock': (r) => isSuccess || isAlreadyExist || isOutOfStock });
 
         if (!isSuccess && !isAlreadyExist && !isOutOfStock && (res.status >= 500 || res.status === 0)) {
@@ -74,7 +73,7 @@ function fetchCartItems(params) {
 
     cartItems = itemsArray.map(item => ({
         cartItemId: item.id,
-        productId: item.product_id || (item.product ? item.product.id : 'Unknown'), // هذا رقم المنتج الفعلي (1 إلى 20) للطباعة
+        productId: item.product_id || (item.product ? item.product.id : 'Unknown'),
         quantity: item.quantity || 1
     }));
 
@@ -82,7 +81,6 @@ function fetchCartItems(params) {
 }
 
 function processCheckout(params, cartItems, traceId) {
-    // 1. استخراج معرفات السلة (cartItemId) فقط لإرسالها وتجاوز فحص لارافيل
     let itemIdsOnly = cartItems.map(item => item.cartItemId);
 
     let orderPayload = JSON.stringify({ items: itemIdsOnly, scenario: 'success' });
@@ -101,23 +99,22 @@ function processCheckout(params, cartItems, traceId) {
     if (isLogicalError) logicalErrors.add(1);
     if (isTechnicalError) technicalErrors.add(1);
 
-    // 2. تجهيز النص للطباعة باستخدام (productId) الذي يمثل رقم المنتج الفعلي من 1 إلى 20
     let itemsLogString = cartItems.map(i => `P${i.productId}:Q${i.quantity}`).join(', ');
 
-    // if (isSuccessOrder) {
-    //     console.log(`✅ [${traceId}] SUCCESS | User ${__VU} bought: [${itemsLogString}]`);
-    // } else if (isLogicalError) {
-    //     let errorMsg = res.json() ? res.json().product_name : '';
-    //     console.log(`⚠️ [${traceId}] OUT OF STOCK | User ${__VU} tried to buy: [${itemsLogString}] but failed. Item: ${errorMsg}`);
-    // } else if (isTechnicalError) {
-    //     console.error(`🚨 [${traceId}] CRASH | User ${__VU} hit a 500 error! Body: ${res.body ? res.body.substring(0, 100) : 'N/A'}`);
-    // }
+    if (isSuccessOrder) {
+        console.log(`[${traceId}] SUCCESS | User ${__VU} bought: [${itemsLogString}]`);
+    } else if (isLogicalError) {
+        let errorMsg = res.json() ? res.json().product_name : '';
+        console.log(`[${traceId}] OUT OF STOCK | User ${__VU} tried to buy: [${itemsLogString}] but failed. Item: ${errorMsg}`);
+    } else if (isTechnicalError) {
+        console.error(` [${traceId}] CRASH | User ${__VU} hit a 500 error! Body: ${res.body ? res.body.substring(0, 100) : 'N/A'}`);
+    }
 
-    // if (res.error) {
-    //     console.error(`🚨 [${traceId}] CONNECTION ERROR: ${res.error}`);
-    // } else {
-    //     console.log(`📡 [${traceId}] RESPONSE STATUS: ${res.status}`);
-    // }
+    if (res.error) {
+        console.error(` [${traceId}] CONNECTION ERROR: ${res.error}`);
+    } else {
+        console.log(` [${traceId}] RESPONSE STATUS: ${res.status}`);
+    }
 
     if (isSuccessOrder || isLogicalError) {
         try {
@@ -139,7 +136,7 @@ function processCheckout(params, cartItems, traceId) {
 export function setup() {
     let tokens = [];
     let requests = [];
-    console.log('⏳ Starting login for 100 users... Please wait!');
+    console.log(' Starting login for 100 users... Please wait!');
 
     for (let i = 1; i <= 100; i++) {
         requests.push({
@@ -155,11 +152,11 @@ export function setup() {
         if (res.status === 200) {
             tokens.push(res.json().token || res.json().access_token);
         } else {
-            console.error(`❌ Login failed for user${index + 1} - Status: ${res.status}`);
+            console.error(` Login failed for user${index + 1} - Status: ${res.status}`);
         }
     });
 
-    console.log(`✅ Collected ${tokens.length} tokens. Starting test!`);
+    console.log(` Collected ${tokens.length} tokens. Starting test!`);
     if (tokens.length === 0) fail('There are no users logged in. 100% Fail.');
     return tokens;
 }
@@ -182,7 +179,6 @@ export default function (tokens) {
         },
     };
 
-    // 4. خطوة استباقية: تنظيف السلة من الاختبارات القديمة
     http.del(`${BASE_URL}/cart/clear`, null, params);
     sleep(0.5);
 
@@ -192,7 +188,6 @@ export default function (tokens) {
     addRandomProductsToCart(params);
     sleep(1);
 
-    // المتغير الآن يحمل مصفوفة من الكائنات تحتوي على الـ id والـ quantity
     let cartItems = fetchCartItems(params);
 
     if (cartItems.length > 0) {
