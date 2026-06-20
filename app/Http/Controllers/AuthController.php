@@ -11,6 +11,28 @@ use Illuminate\Support\Facades\Validator;
 class AuthController extends Controller
 {
 
+    // public function login(Request $request)
+    // {
+    //     $validator = Validator::make($request->all(), [
+    //         'email' => 'required|string|email|max:255',
+    //         'password' => 'required|string|min:8|regex:/^[a-zA-Z0-9]+$/',
+    //     ]);
+
+    //     if ($validator->fails()) {
+    //         return response()->json($validator->errors(), 422);
+    //     }
+
+    //     if (! $token = Auth::attempt($validator->validated())) {
+    //         return response()->json(['error' => 'Unauthorized'], 401);
+    //     }
+    //     $Token = $this->createNewToken($token);
+    //     return response()->json([
+    //         'message' => 'User successfully loggedin',
+    //         'role' => Auth::user()->role,
+    //         'token' => $Token,
+    //     ]);
+    // }
+
     public function login(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -25,11 +47,11 @@ class AuthController extends Controller
         if (! $token = Auth::attempt($validator->validated())) {
             return response()->json(['error' => 'Unauthorized'], 401);
         }
-        $Token = $this->createNewToken($token);
+
         return response()->json([
             'message' => 'User successfully loggedin',
             'role' => Auth::user()->role,
-            'token' => $Token,
+            'token' => $token,
         ]);
     }
 

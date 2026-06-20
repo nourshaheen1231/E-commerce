@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Product;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Validator;
 
 class ProductController extends Controller
@@ -52,7 +53,6 @@ class ProductController extends Controller
 
     public function update(Request $request, $id)
     {
-
         $product = Product::find($id);
         if (!$product) {
             return response()->json(['error' => 'Product not found'], 404);
@@ -71,6 +71,10 @@ class ProductController extends Controller
 
         $product->update($validator->validated());
 
+        if ($product->wasChanged(['name', 'description', 'price'])) {
+            Cache::forget('most_selling_products');
+        }
+
         return response()->json($product, 200);
     }
 
@@ -88,5 +92,31 @@ class ProductController extends Controller
         Product::destroy($id);
 
         return response()->json(['message' => "Product with ID: $id deleted"], 200);
+    }
+
+
+    public function showTopselling()
+    {
+        try {
+            #store for 30 minutes
+            $topProducts = Cache::remember('most_selling_products', 1800, function () {
+                return Product::select('id', 'name', 'description', 'price')
+                    ->orderBy('order_count', 'desc')
+                    ->take(10)
+                    ->get();
+            });
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Top selling products retrieved successfully',
+                'data'    => $topProducts
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error'   => 'Failed to retrieve top selling products',
+                'details' => $e->getMessage()
+            ], 500);
+        }
     }
 }

@@ -30,7 +30,7 @@ class DatabaseSeeder extends Seeder
 
         $users = User::factory(200)->create();
 
-        Product::factory(100)->create();
+        // Product::factory(100)->create();
 
         foreach ($users as $user) {
             Cart::create([

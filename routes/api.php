@@ -8,6 +8,8 @@ use App\Http\Controllers\CartController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\PaymentController;
+use App\Http\Controllers\SearchController;
+use App\Jobs\DailySalesAnalyticsJob;
 
 // Route::get('/user', function (Request $request) {
 //     return $request->user();
@@ -25,6 +27,7 @@ Route::prefix('auth')->group(function () {
 
 // For all users
 Route::get('/products', [ProductController::class, 'index']);
+Route::get('/showTopselling', [ProductController::class, 'showTopselling']);
 Route::get('/products/{id}', [ProductController::class, 'show']);
 
 // Protected routes for ADMIN
@@ -66,21 +69,13 @@ Route::prefix('payment')->middleware(['jwt.verify'])->group(function () {
     // Route::post('/confirm', [PaymentController::class, 'confirmPayment']);
 });
 
+Route::get('/search', [SearchController::class, 'search']);
 
-// Route::get('/test', function () {
-//     return response()->json([
-//         'message' => 'working'
-//     ]);
-// });
+Route::post('/test-report', function () {
 
+    DailySalesAnalyticsJob::dispatch();
 
- // // محاكاة لعمل 3 سيرفرات 
-                    // $workerId = ($this->order->id % 3) + 1;
-                    // $targetQueue = "server_" . $workerId;
-                    // // المهمة الثانوية :توليد فاتورة
-                    // GenerateInvoicePDF::dispatch($this->order)->onQueue($targetQueue);
-
-                    // logger()->info("Order #{$this->order->id}: Payment processed by {$this->queue}. Invoice sent to {$targetQueue}.");
-                    //php artisan queue:work --queue=server_1
-//php artisan queue:work --queue=server_2
-//php artisan queue:work --queue=server_3
+    return response()->json([
+        'message' => 'Job dispatched'
+    ]);
+});
