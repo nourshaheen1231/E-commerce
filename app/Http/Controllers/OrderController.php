@@ -345,6 +345,8 @@ class OrderController extends Controller
                 }
                 $profile['4_order_write_ms'] = (hrtime(true) - $stepStart) / 1e6;
 
+                // throw new \Exception("unexpected error occurred");
+
                 return $order;
             });
 

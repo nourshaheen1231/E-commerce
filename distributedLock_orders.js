@@ -16,13 +16,13 @@ export default function () {
     const url = 'http://127.0.0.1:8080/api/orders/create';
 
     const payload = JSON.stringify({
-        items: [15]
+        items: [592]
     });
 
     const params = {
         headers: {
             'Content-Type': 'application/json',
-            'Authorization': 'Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwOi8vMTI3LjAuMC4xOjgwODAvYXBpL2F1dGgvbG9naW4iLCJpYXQiOjE3ODE5ODczMjgsImV4cCI6MTc4MTk5MDkyOCwibmJmIjoxNzgxOTg3MzI4LCJqdGkiOiJ5V0RRUUFEckwyNkgxZXRsIiwic3ViIjoiMTAxIiwicHJ2IjoiMjNiZDVjODk0OWY2MDBhZGIzOWU3MDFjNDAwODcyZGI3YTU5NzZmNyJ9.WrpNLuiLEh6NgzB9j266E1becsS2EnAgk8lG47lhTYQ',
+            'Authorization': 'Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwOi8vMTI3LjAuMC4xOjgwODAvYXBpL2F1dGgvcmVnaXN0ZXIiLCJpYXQiOjE3ODE5OTgxNjksImV4cCI6MTc4MjAwMTc2OSwibmJmIjoxNzgxOTk4MTY5LCJqdGkiOiJCM2R4c2Y2UEdYaXQ4NFdaIiwic3ViIjoiMTAxIiwicHJ2IjoiMjNiZDVjODk0OWY2MDBhZGIzOWU3MDFjNDAwODcyZGI3YTU5NzZmNyJ9.n_sz9b3KT8MXR_GhzTG-99IA_vEzUN913mfObunhrVA',
         },
     };
 
