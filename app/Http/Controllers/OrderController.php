@@ -78,148 +78,6 @@ class OrderController extends Controller
         return response()->json($orderItems, 200);
     }
 
-    // public function create(Request $request)
-    // {
-    //     $totalStart = hrtime(true);
-    //     $profile = [];
-
-    //     $user = Auth::user();
-
-    //     $stepStart = hrtime(true);
-    //     $lock = Cache::lock('order-submit-user-' . $user->id, 10);
-
-    //     if (!$lock->get()) {
-    //         Log::channel('order_locks')->warning('Duplicate Order Click Detected', [
-    //             'user_id'    => $user->id,
-    //             'lock_key'   => 'order-submit-user-' . $user->id,
-    //             'ip_address' => $request->ip(),
-    //             'url'        => $request->fullUrl(),
-    //         ]);
-    //         return response()->json([
-    //             'message' => 'The previous request is currently being processed, please wait'
-    //         ], 423);
-    //     }
-    //     $profile['0_app_lock_acquire_ms'] = (hrtime(true) - $stepStart) / 1e6;
-
-    //     Log::channel('order_locks')->info('Order Lock Acquired (First Request)', [
-    //         'user_id'  => $user->id,
-    //         'lock_key' => 'order-submit-user-' . $user->id,
-    //     ]);
-
-    //     try {
-    //         $stepStart = hrtime(true);
-
-    //         $validator = Validator::make($request->all(), [
-    //             'items'   => 'required|array|min:1',
-    //             'items.*' => 'integer|exists:cart_items,id',
-    //         ]);
-    //         if ($validator->fails()) {
-    //             return response()->json(['message' => 'Validation failed', 'errors' => $validator->errors()], 422);
-    //         }
-
-    //         $cart = $user->cart;
-    //         if (!$cart) {
-    //             return response()->json(['error' => 'Cart not found'], 404);
-    //         }
-
-    //         $cartItemIds = collect($request->items);
-    //         $cartItems = $cart->cartItems()->whereIn('id', $cartItemIds)->get();
-
-    //         if ($cartItems->isEmpty()) {
-    //             return response()->json(['error' => 'No valid cart items found'], 400);
-    //         }
-    //         if ($cartItems->count() !== $cartItemIds->count()) {
-    //             return response()->json(['error' => 'Some cart items are invalid'], 400);
-    //         }
-
-    //         $profile['1_validation_and_cart_ms'] = (hrtime(true) - $stepStart) / 1e6;
-
-    //         // ملاحظة: &$profile بالمرجع كي تبقى القياسات الجزئية محفوظة حتى لو رمى الـ closure استثناءً
-    //         $order = DB::transaction(function () use ($user, $cartItems, &$profile) {
-
-    //             $productIds = $cartItems->pluck('product_id');
-
-    //             // ⬇️ هنا بالضبط يظهر الاختناق: كل المعاملات المتزامنة على نفس المنتج تصطفّ هنا
-    //             $stepStart = hrtime(true);
-    //             $products = Product::whereIn('id', $productIds)
-    //                 ->orderBy('id')
-    //                 ->lockForUpdate()
-    //                 ->get()
-    //                 ->keyBy('id');
-    //             $profile['2_row_lock_wait_ms'] = (hrtime(true) - $stepStart) / 1e6;
-
-    //             $stepStart = hrtime(true);
-    //             foreach ($cartItems as $item) {
-    //                 $product = $products->get($item->product_id);
-    //                 if (!$product) {
-    //                     throw new \Exception("Product not found for id {$item->product_id}");
-    //                 }
-    //                 if ($product->stock < $item->quantity) {
-    //                     throw new \App\Exceptions\InsufficientStockException(
-    //                         "Requested quantity exceeds available stock",
-    //                         $product->name
-    //                     );
-    //                 }
-    //             }
-    //             $profile['3_stock_check_ms'] = (hrtime(true) - $stepStart) / 1e6;
-
-    //             $stepStart = hrtime(true);
-    //             $totalPrice = $cartItems->sum(fn($i) => $i->price * $i->quantity);
-
-    //             $order = Order::create([
-    //                 'user_id'     => $user->id,
-    //                 'total_price' => $totalPrice,
-    //             ]);
-
-    //             foreach ($cartItems as $item) {
-    //                 $product = $products->get($item->product_id);
-    //                 $product->decrement('stock', $item->quantity);
-
-    //                 OrderItem::create([
-    //                     'order_id'   => $order->id,
-    //                     'product_id' => $item->product_id,
-    //                     'quantity'   => $item->quantity,
-    //                     'price'      => $item->price,
-    //                 ]);
-    //             }
-    //             $profile['4_order_write_ms'] = (hrtime(true) - $stepStart) / 1e6;
-
-    //             return $order;
-    //         });
-    //         $stepStart = hrtime(true);
-    //         ProcessOrder::dispatch($order, $user->id, $request->scenario)->afterCommit();
-    //         $profile['5_dispatch_ms'] = (hrtime(true) - $stepStart) / 1e6;
-
-    //         $profile['total_php_time_ms'] = (hrtime(true) - $totalStart) / 1e6;
-
-    //         Log::channel('performance')->info("Order Profiling [#{$order->id}]", ['metrics' => $profile]);
-
-    //         return response()->json([
-    //             'message'     => 'Order created successfully',
-    //             'order_id'    => $order->id,
-    //             'total_price' => $order->total_price,
-    //             'benchmarks'  => $profile,
-    //         ], 201);
-    //     } catch (\App\Exceptions\InsufficientStockException $e) {
-    //         // قفل الصف صار فعلاً قبل الفشل → القياس مفيد، فأرجِعه
-    //         $profile['total_php_time_ms'] = (hrtime(true) - $totalStart) / 1e6;
-    //         return response()->json([
-    //             'error'        => $e->getMessage(),
-    //             'product_name' => $e->getProductName(),
-    //             'benchmarks'   => $profile,
-    //         ], 400);
-    //     } catch (\Exception $e) {
-    //         Log::error('Order creation failed: ' . $e->getMessage());
-    //         $profile['total_php_time_ms'] = (hrtime(true) - $totalStart) / 1e6;
-    //         return response()->json([
-    //             'error'      => 'Something went wrong',
-    //             'details'    => $e->getMessage(),
-    //             'benchmarks' => $profile,
-    //         ], 500);
-    //     } finally {
-    //         $lock->release();
-    //     }
-    // }
 
 
     public function create(Request $request)
@@ -251,7 +109,7 @@ class OrderController extends Controller
             'lock_key' => 'order-submit-user-' . $user->id,
         ]);
 
-        $audit = []; // يُجمع داخل المعاملة، يُسجَّل بعد الـ commit فقط
+        $audit = [];
 
         try {
             $stepStart = hrtime(true);
@@ -281,14 +139,9 @@ class OrderController extends Controller
 
             $profile['1_validation_and_cart_ms'] = (hrtime(true) - $stepStart) / 1e6;
 
-            // &$profile و &$audit بالمرجع: القياسات تبقى محفوظة حتى لو رمى الـ closure،
-            // والـ audit يُجمع هنا لكن لا يُسجَّل إلا بعد نجاح الـ commit.
             $order = DB::transaction(function () use ($user, $cartItems, &$profile, &$audit) {
 
                 $productIds = $cartItems->pluck('product_id');
-
-                // قفل الصفوف بترتيب id موحّد → يمنع الـ deadlock عند السلال متعددة المنتجات.
-                // وهنا أيضاً يظهر اختناق انتظار القفل عند تنازع نفس المنتج.
                 $stepStart = hrtime(true);
                 $products = Product::whereIn('id', $productIds)
                     ->orderBy('id')
@@ -324,10 +177,9 @@ class OrderController extends Controller
                     $product = $products->get($item->product_id);
 
 
-                    $before = $product->stock;                     // القيمة المقفولة (موثوقة)
-                    $product->decrement('stock', $item->quantity); // UPDATE stock = stock - qty
-                    $after  = $product->stock;                     // Eloquent حدّثها بعد decrement
-
+                    $before = $product->stock;
+                    $product->decrement('stock', $item->quantity);
+                    $after  = $product->stock;
                     $audit[] = [
                         'product_id' => $product->id,
                         'name'       => $product->name,
@@ -345,12 +197,16 @@ class OrderController extends Controller
                 }
                 $profile['4_order_write_ms'] = (hrtime(true) - $stepStart) / 1e6;
 
+                $cart = $user->cart;
+                if (!$cart) {
+                    return response()->json(['error' => 'Cart not found'], 404);
+                }
+                $cart->cartItems()->delete();
                 // throw new \Exception("unexpected error occurred");
 
                 return $order;
             });
 
-            // ── بعد الـ commit: الآن كل سطر audit يعكس واقعاً ملتزماً 100% ──
             foreach ($audit as $row) {
                 Log::channel('inventory')->info('Stock Movement', [
                     'trace_id'   => $traceId,
@@ -364,6 +220,7 @@ class OrderController extends Controller
                     'source'     => 'controller',
                 ]);
             }
+            Cache::forget("cart_user_{$user->id}");
 
             $stepStart = hrtime(true);
             ProcessOrder::dispatch($order, $user->id, $request->scenario)->afterCommit();
@@ -391,7 +248,6 @@ class OrderController extends Controller
                 'benchmarks'  => $profile,
             ], 201);
         } catch (\App\Exceptions\InsufficientStockException $e) {
-            // القفل صار وفحص المخزون فشل قبل أي كتابة → لا audit (صحيح: ما صار خصم).
             $profile['total_php_time_ms'] = (hrtime(true) - $totalStart) / 1e6;
 
             Log::channel('inventory')->warning('Stock Reservation Failed (Out of Stock)', [
@@ -400,13 +256,13 @@ class OrderController extends Controller
                 'product_name' => $e->getProductName(),
             ]);
 
+
             return response()->json([
                 'error'        => $e->getMessage(),
                 'product_name' => $e->getProductName(),
                 'benchmarks'   => $profile,
             ], 400);
         } catch (\Illuminate\Database\QueryException $e) {
-            // التقاط الـ deadlock تحديداً (المعاملة عملت rollback كاملاً → لا audit كاذب).
             if ($e->getCode() === '40001') {
                 Log::channel('orders')->warning('Deadlock detected (transaction rolled back)', [
                     'trace_id' => $traceId,
@@ -448,12 +304,10 @@ class OrderController extends Controller
         }
     }
 
-
     public function cancelOrder($id)
     {
         $user = Auth::user();
 
-        // 1) جلب الطلب مع الدفع
         $order = Order::where('user_id', $user->id)
             ->with('payment')
             ->find($id);
@@ -462,12 +316,10 @@ class OrderController extends Controller
             return response()->json(['message' => 'Order not found'], 404);
         }
 
-        // 2) منع الإلغاء إذا تم شحنه أو تسليمه
         if (in_array($order->status, ['shipped', 'delivered'])) {
             return response()->json(['message' => 'Order cannot be canceled'], 400);
         }
 
-        // 3) إذا الطلب مدفوع → استدعاء refund
         if ($order->payment && $order->payment->status === 'paid') {
 
             $paymentController = new PaymentController();
@@ -481,7 +333,6 @@ class OrderController extends Controller
             }
         }
 
-        // 4) تحديث حالة الطلب
         $order->status = 'canceled';
         $order->save();
 

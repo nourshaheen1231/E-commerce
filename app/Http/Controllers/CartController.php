@@ -164,8 +164,8 @@ use App\Models\CartItem;
 use App\Models\Product;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Validator;
 
 class CartController extends Controller
 {
@@ -174,25 +174,32 @@ class CartController extends Controller
     public function index()
     {
         $user = Auth::user();
-
         $cacheKey = "cart_user_{$user->id}";
 
         $cartData = Cache::remember($cacheKey, self::CACHE_TTL, function () use ($user) {
             $cart = $user->cart;
-
             if (!$cart) {
                 return [];
             }
 
-            return CartItem::with('product')
+            return CartItem::with('product:id,name,price,stock')
                 ->where('cart_id', $cart->id)
-                ->get();
+                ->get()
+                ->map(fn($item) => [
+                    'id'         => $item->id,
+                    'product_id' => $item->product_id,
+                    'quantity'   => $item->quantity,
+                    'price'      => $item->price,
+                    'product'    => [
+                        'name'  => $item->product?->name,
+                        'price' => $item->product?->price,
+                        'stock' => $item->product?->stock,
+                    ],
+                ])
+                ->toArray();
         });
 
-        return response()->json([
-            'data' => $cartData,
-            'served_by_worker_port' => request()->server('SERVER_PORT')
-        ], 200);
+        return response()->json(['data' => $cartData], 200);
     }
 
     public function add(Request $request)
@@ -203,7 +210,6 @@ class CartController extends Controller
             'product_id' => 'required|integer|exists:products,id',
             'quantity'   => 'nullable|integer|min:1|max:1000',
         ]);
-
         if ($validator->fails()) {
             return response()->json(['error' => $validator->errors()], 422);
         }
@@ -225,10 +231,10 @@ class CartController extends Controller
         }
 
         CartItem::create([
-            'cart_id' => $cart->id,
+            'cart_id'    => $cart->id,
             'product_id' => $product->id,
-            'quantity' => $requestedQty,
-            'price' => $product->price * $requestedQty,
+            'quantity'   => $requestedQty,
+            'price'      => $product->price * $requestedQty,
         ]);
 
         Cache::forget("cart_user_{$user->id}");
@@ -243,13 +249,11 @@ class CartController extends Controller
         $validator = Validator::make($request->all(), [
             'product_id' => 'required|integer|exists:products,id',
         ]);
-
         if ($validator->fails()) {
             return response()->json(['error' => $validator->errors()], 422);
         }
 
         $cart = $user->cart;
-
         if (!$cart) {
             return response()->json(['error' => 'Cart is empty'], 404);
         }
@@ -257,7 +261,6 @@ class CartController extends Controller
         $cartItem = CartItem::where('cart_id', $cart->id)
             ->where('product_id', $request->product_id)
             ->first();
-
         if (!$cartItem) {
             return response()->json(['error' => 'Product not found in cart'], 404);
         }
@@ -273,17 +276,16 @@ class CartController extends Controller
     {
         $user = Auth::user();
 
+
         $validator = Validator::make($request->all(), [
             'product_id' => 'required|integer|exists:products,id',
             'quantity'   => 'required|integer|min:1|max:1000',
         ]);
-
         if ($validator->fails()) {
             return response()->json(['error' => $validator->errors()], 422);
         }
 
         $cart = $user->cart;
-
         if (!$cart) {
             return response()->json(['error' => 'Cart is empty'], 404);
         }
@@ -291,7 +293,6 @@ class CartController extends Controller
         $cartItem = CartItem::where('cart_id', $cart->id)
             ->where('product_id', $request->product_id)
             ->first();
-
         if (!$cartItem) {
             return response()->json(['error' => 'Product not found in cart'], 404);
         }
@@ -303,5 +304,18 @@ class CartController extends Controller
         Cache::forget("cart_user_{$user->id}");
 
         return response()->json(['message' => 'Cart updated'], 200);
+    }
+
+    public function clear()
+    {
+        $user = Auth::user();
+        $cart = $user->cart;
+        if ($cart) {
+            $cart->cartItems()->delete();
+        }
+
+        Cache::forget("cart_user_{$user->id}");   // ← مهم
+
+        return response()->json(['message' => 'Cart cleared'], 200);
     }
 }

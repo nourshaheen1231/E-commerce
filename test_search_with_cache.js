@@ -8,7 +8,7 @@ export const options = {
 };
 
 const BASE_URL = 'http://127.0.0.1:8080/api/search';
-const TOKEN = "Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwOi8vbG9jYWxob3N0L2FwaS9hdXRoL3JlZ2lzdGVyIiwiaWF0IjoxNzgxOTY0ODgwLCJleHAiOjE3ODE5Njg0ODAsIm5iZiI6MTc4MTk2NDg4MCwianRpIjoieDhnYTZTWjl4WkVFemNWUiIsInN1YiI6IjEwMSIsInBydiI6IjIzYmQ1Yzg5NDlmNjAwYWRiMzllNzAxYzQwMDg3MmRiN2E1OTc2ZjcifQ.sRSDiQQyrt39zzvLUZTPLlQg1Bqp8m7wuWgEjhlfOQU";
+const TOKEN = "Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwOi8vMTI3LjAuMC4xOjgwODAvYXBpL2F1dGgvbG9naW4iLCJpYXQiOjE3ODIwMjU4MDEsImV4cCI6MTc4MjAyOTQwMSwibmJmIjoxNzgyMDI1ODAxLCJqdGkiOiJMWFV4SlV6elpHOFRYYkpOIiwic3ViIjoiMTAxIiwicHJ2IjoiMjNiZDVjODk0OWY2MDBhZGIzOWU3MDFjNDAwODcyZGI3YTU5NzZmNyJ9.-cGxYIp-AyZJq9-yHEbkNi9WFr1O9NjYfH1T9dYtC3U";
 
 const SEARCH_TERMS = ['laptop', 'phone', 'shoes', 'watch', 'camera', 'samsung', 'apple', 'bag'];
 

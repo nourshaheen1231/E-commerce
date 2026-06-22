@@ -123,7 +123,3 @@ class ProcessOrder implements ShouldQueue
         });
     }
 }
-
-// php artisan queue:work --queue=server_1
-// php artisan queue:work --queue=server_2
-// php artisan queue:work --queue=server_3
